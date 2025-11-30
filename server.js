@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import colors from 'colors';
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import connectDB from './config/db.js';
 
 // Load environment variables
 dotenv.config();
@@ -29,11 +29,8 @@ app.use((err, req, res, next) => {
 });
 
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'.green.bold))
-  .catch((err) => console.error('MongoDB connection error:'.red.bold, err));
-
+// Connect to MongoDB
+connectDB();
 
 // Start server
 const PORT = process.env.PORT || 5000;
