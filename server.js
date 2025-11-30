@@ -1,8 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import colors from 'colors';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-
+// Load environment variables
+dotenv.config();
 
 // Create Express app
 const app = express();
@@ -24,6 +27,13 @@ app.use((err, req, res, next) => {
   console.error("Error:".red.bold, err.stack);
   res.status(500).json({ message: "Something went wrong!" });
 });
+
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('Connected to MongoDB'.green.bold))
+  .catch((err) => console.error('MongoDB connection error:'.red.bold, err));
+
 
 // Start server
 const PORT = process.env.PORT || 5000;
