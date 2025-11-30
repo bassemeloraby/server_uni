@@ -3,6 +3,7 @@ import cors from 'cors';
 import colors from 'colors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
+import pharmacyRoutes from './routes/pharmacyRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +22,9 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to UNI API" });
 });
+
+// API Routes
+app.use("/api/pharmacies", pharmacyRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
