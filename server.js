@@ -4,6 +4,8 @@ import colors from 'colors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import pharmacyRoutes from './routes/pharmacyRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -25,6 +27,8 @@ app.get("/", (req, res) => {
 
 // API Routes
 app.use("/api/pharmacies", pharmacyRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

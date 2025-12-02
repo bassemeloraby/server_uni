@@ -23,7 +23,7 @@ export const getPharmacies = async (req, res) => {
       query.$text = { $search: search };
     }
     
-    const pharmacies = await Pharmacy.find(query).sort({ createdAt: -1 });
+    const pharmacies = await Pharmacy.find(query).populate('pharmacist', 'firstName lastName email phone username role').sort({ createdAt: -1 });
     
     res.status(200).json({
       success: true,
@@ -45,7 +45,7 @@ export const getPharmacies = async (req, res) => {
 // @access  Public
 export const getPharmacy = async (req, res) => {
   try {
-    const pharmacy = await Pharmacy.findById(req.params.id);
+    const pharmacy = await Pharmacy.findById(req.params.id).populate('pharmacist', 'firstName lastName email phone username role whatsapp address');
     
     if (!pharmacy) {
       return res.status(404).json({
@@ -74,6 +74,7 @@ export const getPharmacy = async (req, res) => {
 export const createPharmacy = async (req, res) => {
   try {
     const pharmacy = await Pharmacy.create(req.body);
+    await pharmacy.populate('pharmacist', 'firstName lastName email phone username role whatsapp address');
     
     res.status(201).json({
       success: true,
@@ -111,7 +112,7 @@ export const updatePharmacy = async (req, res) => {
         new: true,
         runValidators: true,
       }
-    );
+    ).populate('pharmacist', 'firstName lastName email phone username role whatsapp address');
     
     if (!pharmacy) {
       return res.status(404).json({
