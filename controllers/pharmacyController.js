@@ -23,7 +23,7 @@ export const getPharmacies = async (req, res) => {
       query.$text = { $search: search };
     }
     
-    const pharmacies = await Pharmacy.find(query).populate('pharmacist', 'firstName lastName email phone username role').sort({ createdAt: -1 });
+    const pharmacies = await Pharmacy.find(query).populate('pharmacists', 'firstName lastName email phone username role').sort({ createdAt: -1 });
     
     res.status(200).json({
       success: true,
@@ -45,7 +45,7 @@ export const getPharmacies = async (req, res) => {
 // @access  Public
 export const getPharmacy = async (req, res) => {
   try {
-    const pharmacy = await Pharmacy.findById(req.params.id).populate('pharmacist', 'firstName lastName email phone username role whatsapp address');
+    const pharmacy = await Pharmacy.findById(req.params.id).populate('pharmacists', 'firstName lastName email phone username role whatsapp address');
     
     if (!pharmacy) {
       return res.status(404).json({
@@ -74,7 +74,7 @@ export const getPharmacy = async (req, res) => {
 export const createPharmacy = async (req, res) => {
   try {
     const pharmacy = await Pharmacy.create(req.body);
-    await pharmacy.populate('pharmacist', 'firstName lastName email phone username role whatsapp address');
+    await pharmacy.populate('pharmacists', 'firstName lastName email phone username role whatsapp address');
     
     res.status(201).json({
       success: true,
@@ -105,14 +105,22 @@ export const createPharmacy = async (req, res) => {
 // @access  Public
 export const updatePharmacy = async (req, res) => {
   try {
+    // Handle backward compatibility: if pharmacist (singular) is sent, convert to pharmacists array
+    const updateData = { ...req.body };
+    if (updateData.pharmacist !== undefined && updateData.pharmacists === undefined) {
+      // Convert single pharmacist to array
+      updateData.pharmacists = updateData.pharmacist ? [updateData.pharmacist] : [];
+      delete updateData.pharmacist;
+    }
+    
     const pharmacy = await Pharmacy.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true,
       }
-    ).populate('pharmacist', 'firstName lastName email phone username role whatsapp address');
+    ).populate('pharmacists', 'firstName lastName email phone username role whatsapp address');
     
     if (!pharmacy) {
       return res.status(404).json({
@@ -169,6 +177,106 @@ export const deletePharmacy = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting pharmacy',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Add pharmacist to pharmacy
+// @route   POST /api/pharmacies/:id/pharmacists
+// @access  Public
+export const addPharmacist = async (req, res) => {
+  try {
+    const { pharmacistId } = req.body;
+    
+    if (!pharmacistId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pharmacist ID is required',
+      });
+    }
+    
+    const pharmacy = await Pharmacy.findById(req.params.id);
+    
+    if (!pharmacy) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pharmacy not found',
+      });
+    }
+    
+    // Initialize pharmacists array if it doesn't exist
+    if (!pharmacy.pharmacists) {
+      pharmacy.pharmacists = [];
+    }
+    
+    // Check if pharmacist is already assigned (convert ObjectIds to strings for comparison)
+    const isAlreadyAssigned = pharmacy.pharmacists.some(
+      id => id.toString() === pharmacistId.toString()
+    );
+    
+    if (isAlreadyAssigned) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pharmacist is already assigned to this pharmacy',
+      });
+    }
+    
+    // Add pharmacist to array
+    pharmacy.pharmacists.push(pharmacistId);
+    await pharmacy.save();
+    
+    await pharmacy.populate('pharmacists', 'firstName lastName email phone username role whatsapp address');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Pharmacist added successfully',
+      data: pharmacy,
+    });
+  } catch (error) {
+    console.error('Error adding pharmacist:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding pharmacist',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Remove pharmacist from pharmacy
+// @route   DELETE /api/pharmacies/:id/pharmacists/:pharmacistId
+// @access  Public
+export const removePharmacist = async (req, res) => {
+  try {
+    const { pharmacistId } = req.params;
+    
+    const pharmacy = await Pharmacy.findById(req.params.id);
+    
+    if (!pharmacy) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pharmacy not found',
+      });
+    }
+    
+    // Remove pharmacist from array
+    pharmacy.pharmacists = pharmacy.pharmacists.filter(
+      id => id.toString() !== pharmacistId
+    );
+    await pharmacy.save();
+    
+    await pharmacy.populate('pharmacists', 'firstName lastName email phone username role whatsapp address');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Pharmacist removed successfully',
+      data: pharmacy,
+    });
+  } catch (error) {
+    console.error('Error removing pharmacist:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing pharmacist',
       error: error.message,
     });
   }

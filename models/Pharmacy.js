@@ -73,10 +73,10 @@ const pharmacySchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
-  pharmacist: {
+  pharmacists: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-  },
+  }],
 }, {
   timestamps: true,
 });

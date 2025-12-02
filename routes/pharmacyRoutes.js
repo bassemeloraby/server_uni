@@ -5,6 +5,8 @@ import {
   createPharmacy,
   updatePharmacy,
   deletePharmacy,
+  addPharmacist,
+  removePharmacist,
 } from '../controllers/pharmacyController.js';
 
 const router = express.Router();
@@ -13,6 +15,13 @@ const router = express.Router();
 router.route('/')
   .get(getPharmacies)
   .post(createPharmacy);
+
+// More specific routes must come before generic :id route
+router.route('/:id/pharmacists/:pharmacistId')
+  .delete(removePharmacist);
+
+router.route('/:id/pharmacists')
+  .post(addPharmacist);
 
 router.route('/:id')
   .get(getPharmacy)
