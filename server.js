@@ -6,6 +6,7 @@ import connectDB from './config/db.js';
 import pharmacyRoutes from './routes/pharmacyRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import detailedSalesRoutes from './routes/detailedSalesRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +30,7 @@ app.get("/", (req, res) => {
 app.use("/api/pharmacies", pharmacyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/detailed-sales", detailedSalesRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
