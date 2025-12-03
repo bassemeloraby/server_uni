@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
 
 const pharmacySchema = new mongoose.Schema({
+  branchCode: {
+    type: Number,
+    required: [true, 'Branch code is required'],
+    unique: true,
+    trim: true,
+  },
   name: {
     type: String,
     required: [true, 'Pharmacy name is required'],
@@ -88,6 +94,7 @@ const pharmacySchema = new mongoose.Schema({
 // Index for faster search
 pharmacySchema.index({ name: 'text', 'address.city': 'text' });
 pharmacySchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
+pharmacySchema.index({ branchCode: 1 });
 
 const Pharmacy = mongoose.model('Pharmacy', pharmacySchema);
 
