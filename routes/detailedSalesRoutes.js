@@ -8,6 +8,7 @@ import {
   deleteDetailedSale,
   getSalesStatistics,
   getPharmaciesByBranchCode,
+  getSalesBySalesName,
 } from '../controllers/detailedSalesController.js';
 
 const router = express.Router();
@@ -18,6 +19,9 @@ router.route('/stats/summary')
 
 router.route('/stats/pharmacies-by-branch')
   .get(getPharmaciesByBranchCode);
+
+router.route('/stats/sales-by-name')
+  .get(getSalesBySalesName);
 
 // Bulk create route (must come before generic routes)
 router.route('/bulk')

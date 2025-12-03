@@ -372,10 +372,16 @@ export const getPharmaciesByBranchCode = async (req, res) => {
     const totalBranchCodes = distinctBranchCodes.length;
     const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
     
+    // Calculate percentage for each branch code
+    const statisticsWithPercentage = statistics.map((stat) => ({
+      ...stat,
+      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
+    }));
+    
     res.status(200).json({
       success: true,
       data: {
-        statistics,
+        statistics: statisticsWithPercentage,
         summary: {
           totalBranchCodes,
           totalPharmacies,
@@ -388,6 +394,70 @@ export const getPharmaciesByBranchCode = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching pharmacy statistics by branch code',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get sales statistics by sales name
+// @route   GET /api/detailed-sales/stats/sales-by-name
+// @access  Public
+export const getSalesBySalesName = async (req, res) => {
+  try {
+    // Aggregate sales by SalesName
+    const salesByName = await DetailedSales.aggregate([
+      {
+        $group: {
+          _id: '$SalesName',
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      {
+        $sort: { totalSales: -1 }, // Sort by total sales descending
+      },
+    ]);
+    
+    // Format the results
+    const statistics = salesByName.map((item) => ({
+      salesName: item._id,
+      totalSales: item.totalSales || 0,
+      totalTransactions: item.totalTransactions || 0,
+      totalQuantity: item.totalQuantity || 0,
+      totalNetTotal: item.totalNetTotal || 0,
+    }));
+    
+    // Calculate totals
+    const totalSalesPersons = statistics.length;
+    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
+    
+    // Calculate percentage for each sales person
+    const statisticsWithPercentage = statistics.map((stat) => ({
+      ...stat,
+      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
+    }));
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics: statisticsWithPercentage,
+        summary: {
+          totalSalesPersons,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sales statistics by sales name:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sales statistics by sales name',
       error: error.message,
     });
   }
