@@ -8,8 +8,12 @@ import {
   addPharmacist,
   removePharmacist,
 } from '../controllers/pharmacyController.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// All routes require authentication
+router.use(protect);
 
 // Routes
 router.route('/')

@@ -4,7 +4,7 @@ import colors from 'colors';
 
 // @desc    Get all detailed sales
 // @route   GET /api/detailed-sales
-// @access  Public
+// @access  Private
 export const getDetailedSales = async (req, res) => {
   try {
     const { 
@@ -96,7 +96,7 @@ export const getDetailedSales = async (req, res) => {
 
 // @desc    Get single detailed sale
 // @route   GET /api/detailed-sales/:id
-// @access  Public
+// @access  Private
 export const getDetailedSale = async (req, res) => {
   try {
     const detailedSale = await DetailedSales.findById(req.params.id);
@@ -124,7 +124,7 @@ export const getDetailedSale = async (req, res) => {
 
 // @desc    Create new detailed sale
 // @route   POST /api/detailed-sales
-// @access  Public
+// @access  Private
 export const createDetailedSale = async (req, res) => {
   try {
     const detailedSale = await DetailedSales.create(req.body);
@@ -155,7 +155,7 @@ export const createDetailedSale = async (req, res) => {
 
 // @desc    Create multiple detailed sales (bulk insert)
 // @route   POST /api/detailed-sales/bulk
-// @access  Public
+// @access  Private
 export const createBulkDetailedSales = async (req, res) => {
   try {
     const { sales } = req.body;
@@ -198,7 +198,7 @@ export const createBulkDetailedSales = async (req, res) => {
 
 // @desc    Update detailed sale
 // @route   PUT /api/detailed-sales/:id
-// @access  Public
+// @access  Private
 export const updateDetailedSale = async (req, res) => {
   try {
     const detailedSale = await DetailedSales.findByIdAndUpdate(
@@ -243,7 +243,7 @@ export const updateDetailedSale = async (req, res) => {
 
 // @desc    Delete detailed sale
 // @route   DELETE /api/detailed-sales/:id
-// @access  Public
+// @access  Private
 export const deleteDetailedSale = async (req, res) => {
   try {
     const detailedSale = await DetailedSales.findByIdAndDelete(req.params.id);
@@ -272,7 +272,7 @@ export const deleteDetailedSale = async (req, res) => {
 
 // @desc    Get sales statistics
 // @route   GET /api/detailed-sales/stats/summary
-// @access  Public
+// @access  Private
 export const getSalesStatistics = async (req, res) => {
   try {
     const { branchCode, startDate, endDate } = req.query;
@@ -330,7 +330,7 @@ export const getSalesStatistics = async (req, res) => {
 
 // @desc    Get pharmacy statistics by branch code
 // @route   GET /api/detailed-sales/stats/pharmacies-by-branch
-// @access  Public
+// @access  Private
 export const getPharmaciesByBranchCode = async (req, res) => {
   try {
     // Get all distinct branch codes from detailed sales
@@ -401,7 +401,7 @@ export const getPharmaciesByBranchCode = async (req, res) => {
 
 // @desc    Get sales statistics by sales name
 // @route   GET /api/detailed-sales/stats/sales-by-name
-// @access  Public
+// @access  Private
 export const getSalesBySalesName = async (req, res) => {
   try {
     // Aggregate sales by SalesName

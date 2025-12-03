@@ -3,7 +3,7 @@ import colors from 'colors';
 
 // @desc    Get all pharmacies
 // @route   GET /api/pharmacies
-// @access  Public
+// @access  Private
 export const getPharmacies = async (req, res) => {
   try {
     const { city, isActive, search } = req.query;
@@ -45,7 +45,7 @@ export const getPharmacies = async (req, res) => {
 
 // @desc    Get single pharmacy
 // @route   GET /api/pharmacies/:id
-// @access  Public
+// @access  Private
 export const getPharmacy = async (req, res) => {
   try {
     const pharmacy = await Pharmacy.findById(req.params.id)
@@ -75,7 +75,7 @@ export const getPharmacy = async (req, res) => {
 
 // @desc    Create new pharmacy
 // @route   POST /api/pharmacies
-// @access  Public
+// @access  Private
 export const createPharmacy = async (req, res) => {
   try {
     const pharmacy = await Pharmacy.create(req.body);
@@ -108,7 +108,7 @@ export const createPharmacy = async (req, res) => {
 
 // @desc    Update pharmacy
 // @route   PUT /api/pharmacies/:id
-// @access  Public
+// @access  Private
 export const updatePharmacy = async (req, res) => {
   try {
     // Handle backward compatibility: if pharmacist (singular) is sent, convert to pharmacists array
@@ -163,7 +163,7 @@ export const updatePharmacy = async (req, res) => {
 
 // @desc    Delete pharmacy
 // @route   DELETE /api/pharmacies/:id
-// @access  Public
+// @access  Private
 export const deletePharmacy = async (req, res) => {
   try {
     const pharmacy = await Pharmacy.findByIdAndDelete(req.params.id);
@@ -192,7 +192,7 @@ export const deletePharmacy = async (req, res) => {
 
 // @desc    Add pharmacist to pharmacy
 // @route   POST /api/pharmacies/:id/pharmacists
-// @access  Public
+// @access  Private
 export const addPharmacist = async (req, res) => {
   try {
     const { pharmacistId } = req.body;
@@ -254,7 +254,7 @@ export const addPharmacist = async (req, res) => {
 
 // @desc    Remove pharmacist from pharmacy
 // @route   DELETE /api/pharmacies/:id/pharmacists/:pharmacistId
-// @access  Public
+// @access  Private
 export const removePharmacist = async (req, res) => {
   try {
     const { pharmacistId } = req.params;
