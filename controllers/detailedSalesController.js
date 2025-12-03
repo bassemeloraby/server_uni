@@ -1,4 +1,5 @@
 import DetailedSales from '../models/DetailedSales.js';
+import Pharmacy from '../models/Pharmacy.js';
 import colors from 'colors';
 
 // @desc    Get all detailed sales
@@ -322,6 +323,71 @@ export const getSalesStatistics = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching sales statistics',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get pharmacy statistics by branch code
+// @route   GET /api/detailed-sales/stats/pharmacies-by-branch
+// @access  Public
+export const getPharmaciesByBranchCode = async (req, res) => {
+  try {
+    // Get all distinct branch codes from detailed sales
+    const distinctBranchCodes = await DetailedSales.distinct('BranchCode');
+    
+    // Aggregate ItemsNetPrice by branch code
+    const salesByBranch = await DetailedSales.aggregate([
+      {
+        $group: {
+          _id: '$BranchCode',
+          totalSales: { $sum: '$ItemsNetPrice' },
+        },
+      },
+    ]);
+    
+    // Create a map for quick lookup
+    const salesMap = {};
+    salesByBranch.forEach((item) => {
+      salesMap[item._id] = item.totalSales || 0;
+    });
+    
+    // For each branch code, count how many pharmacies have that branchCode
+    const statistics = await Promise.all(
+      distinctBranchCodes.map(async (branchCode) => {
+        const pharmacyCount = await Pharmacy.countDocuments({ branchCode });
+        return {
+          branchCode,
+          pharmacyCount,
+          totalSales: salesMap[branchCode] || 0,
+        };
+      })
+    );
+    
+    // Sort by branch code
+    statistics.sort((a, b) => a.branchCode - b.branchCode);
+    
+    // Calculate totals
+    const totalPharmacies = await Pharmacy.countDocuments();
+    const totalBranchCodes = distinctBranchCodes.length;
+    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics,
+        summary: {
+          totalBranchCodes,
+          totalPharmacies,
+          totalSales: grandTotalSales,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching pharmacy statistics by branch code:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching pharmacy statistics by branch code',
       error: error.message,
     });
   }
