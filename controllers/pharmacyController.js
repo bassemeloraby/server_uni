@@ -72,6 +72,7 @@ export const getPharmacy = async (req, res) => {
         return res.status(403).json({
           success: false,
           message: 'Access denied. You are not authorized to view this pharmacy.',
+          reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can access pharmacy data.',
         });
       }
     }
