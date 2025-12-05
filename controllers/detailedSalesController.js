@@ -765,3 +765,135 @@ export const getSalesBySalesName = async (req, res) => {
   }
 };
 
+// @desc    Get sales statistics by invoice type
+// @route   GET /api/detailed-sales/stats/sales-by-invoice-type
+// @access  Private
+export const getSalesByInvoiceType = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode } = req.query;
+    
+    // Build query for branch codes based on user role
+    let branchCodeQuery = {};
+    
+    // If user is a pharmacy supervisor, only show sales from pharmacies assigned to them
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      // If branchCode is provided, verify supervisor is assigned to that pharmacy
+      if (branchCode) {
+        const pharmacy = await Pharmacy.findOne({ branchCode: parseInt(branchCode) })
+          .populate('supervisor', '_id');
+        if (!pharmacy) {
+          return res.status(404).json({
+            success: false,
+            message: 'Pharmacy not found for the provided branch code',
+          });
+        }
+        
+        // Check if supervisor is assigned to this pharmacy
+        const supervisorIdStr = pharmacy.supervisor 
+          ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
+          : null;
+        const userIdStr = user._id.toString();
+        const isAuthorized = supervisorIdStr === userIdStr;
+        
+        if (!pharmacy.supervisor || !isAuthorized) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. You are not authorized to view statistics for this pharmacy.',
+            reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can view pharmacy statistics.',
+          });
+        }
+        
+        // Supervisor is authorized, add branchCode to query
+        branchCodeQuery = { BranchCode: parseInt(branchCode) };
+      } else {
+        // Get all pharmacies assigned to this supervisor
+        const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
+        const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
+        
+        if (assignedBranchCodes.length === 0) {
+          // Supervisor has no assigned pharmacies, return empty statistics
+          return res.status(200).json({
+            success: true,
+            data: {
+              statistics: [],
+              summary: {
+                totalInvoiceTypes: 0,
+                totalSales: 0,
+                totalTransactions: 0,
+                totalQuantity: 0,
+              },
+            },
+          });
+        }
+        
+        // Filter by assigned branch codes
+        branchCodeQuery = { BranchCode: { $in: assignedBranchCodes } };
+      }
+    } else {
+      // For non-supervisors (admin, etc.), allow all queries
+      if (branchCode) {
+        branchCodeQuery = { BranchCode: parseInt(branchCode) };
+      }
+    }
+    
+    // Aggregate sales by InvoiceType (filtered by supervisor if applicable)
+    const salesByInvoiceType = await DetailedSales.aggregate([
+      ...(Object.keys(branchCodeQuery).length > 0 ? [{ $match: branchCodeQuery }] : []),
+      {
+        $group: {
+          _id: '$InvoiceType',
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      {
+        $sort: { totalSales: -1 }, // Sort by total sales descending
+      },
+    ]);
+    
+    // Format the results
+    const statistics = salesByInvoiceType.map((item) => ({
+      invoiceType: item._id,
+      totalSales: item.totalSales || 0,
+      totalTransactions: item.totalTransactions || 0,
+      totalQuantity: item.totalQuantity || 0,
+      totalNetTotal: item.totalNetTotal || 0,
+    }));
+    
+    // Calculate totals
+    const totalInvoiceTypes = statistics.length;
+    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
+    
+    // Calculate percentage for each invoice type
+    const statisticsWithPercentage = statistics.map((stat) => ({
+      ...stat,
+      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
+    }));
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics: statisticsWithPercentage,
+        summary: {
+          totalInvoiceTypes,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sales statistics by invoice type:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sales statistics by invoice type',
+      error: error.message,
+    });
+  }
+};
+
