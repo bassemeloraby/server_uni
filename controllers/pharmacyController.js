@@ -148,16 +148,13 @@ export const updatePharmacy = async (req, res) => {
       });
     }
     
-    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      if (!existingPharmacy.supervisor || existingPharmacy.supervisor.toString() !== user._id.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. You are not authorized to update this pharmacy.',
-        });
-      }
-      // Prevent supervisor from changing the supervisor field
-      delete req.body.supervisor;
+    // Only admin can edit pharmacy
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can edit pharmacies.',
+        reason: 'You must be an administrator to edit pharmacy information.',
+      });
     }
     
     // Handle backward compatibility: if pharmacist (singular) is sent, convert to pharmacists array
