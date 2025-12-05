@@ -675,34 +675,70 @@ export const getPharmaciesByBranchCode = async (req, res) => {
 export const getSalesBySalesName = async (req, res) => {
   try {
     const user = req.user;
+    const { branchCode } = req.query;
     
     // Build query for branch codes based on user role
     let branchCodeQuery = {};
     
     // If user is a pharmacy supervisor, only show sales from pharmacies assigned to them
     if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // Get all pharmacies assigned to this supervisor
-      const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
-      const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
-      
-      if (assignedBranchCodes.length === 0) {
-        // Supervisor has no assigned pharmacies, return empty statistics
-        return res.status(200).json({
-          success: true,
-          data: {
-            statistics: [],
-            summary: {
-              totalSalesPersons: 0,
-              totalSales: 0,
-              totalTransactions: 0,
-              totalQuantity: 0,
+      // If branchCode is provided, verify supervisor is assigned to that pharmacy
+      if (branchCode) {
+        const pharmacy = await Pharmacy.findOne({ branchCode: parseInt(branchCode) })
+          .populate('supervisor', '_id');
+        if (!pharmacy) {
+          return res.status(404).json({
+            success: false,
+            message: 'Pharmacy not found for the provided branch code',
+          });
+        }
+        
+        // Check if supervisor is assigned to this pharmacy
+        const supervisorIdStr = pharmacy.supervisor 
+          ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
+          : null;
+        const userIdStr = user._id.toString();
+        const isAuthorized = supervisorIdStr === userIdStr;
+        
+        if (!pharmacy.supervisor || !isAuthorized) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. You are not authorized to view statistics for this pharmacy.',
+            reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can view pharmacy statistics.',
+          });
+        }
+        
+        // Supervisor is authorized, add branchCode to query
+        branchCodeQuery = { BranchCode: parseInt(branchCode) };
+      } else {
+        // Get all pharmacies assigned to this supervisor
+        const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
+        const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
+        
+        if (assignedBranchCodes.length === 0) {
+          // Supervisor has no assigned pharmacies, return empty statistics
+          return res.status(200).json({
+            success: true,
+            data: {
+              statistics: [],
+              summary: {
+                totalSalesPersons: 0,
+                totalSales: 0,
+                totalTransactions: 0,
+                totalQuantity: 0,
+              },
             },
-          },
-        });
+          });
+        }
+        
+        // Filter by assigned branch codes
+        branchCodeQuery = { BranchCode: { $in: assignedBranchCodes } };
       }
-      
-      // Filter by assigned branch codes
-      branchCodeQuery = { BranchCode: { $in: assignedBranchCodes } };
+    } else {
+      // For non-supervisors (admin, etc.), allow all queries
+      if (branchCode) {
+        branchCodeQuery = { BranchCode: parseInt(branchCode) };
+      }
     }
     
     // Aggregate sales by SalesName (filtered by supervisor if applicable)
@@ -863,14 +899,63 @@ export const getSalesByInvoiceType = async (req, res) => {
       totalNetTotal: item.totalNetTotal || 0,
     }));
     
-    // Calculate totals
-    const totalInvoiceTypes = statistics.length;
-    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
-    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
-    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
+    // Find and combine insurance and returninsurance into Total insurance
+    const insuranceStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'insurance'
+    );
+    const returnInsuranceStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'returninsurance'
+    );
+    
+    // Find and combine Online and ReturnOnline into Total Online
+    const onlineStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'online'
+    );
+    const returnOnlineStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'returnonline'
+    );
+    
+    // Filter out insurance, returninsurance, online, and returnonline
+    const filteredStatistics = statistics.filter(stat => {
+      const invoiceTypeLower = stat.invoiceType?.toLowerCase();
+      return invoiceTypeLower !== 'insurance' && 
+             invoiceTypeLower !== 'returninsurance' &&
+             invoiceTypeLower !== 'online' &&
+             invoiceTypeLower !== 'returnonline';
+    });
+    
+    // Add Total insurance if insurance or returninsurance exists
+    if (insuranceStat || returnInsuranceStat) {
+      const totalInsuranceEntry = {
+        invoiceType: 'Total insurance',
+        totalSales: (insuranceStat?.totalSales || 0) + (returnInsuranceStat?.totalSales || 0),
+        totalTransactions: (insuranceStat?.totalTransactions || 0) + (returnInsuranceStat?.totalTransactions || 0),
+        totalQuantity: (insuranceStat?.totalQuantity || 0) + (returnInsuranceStat?.totalQuantity || 0),
+        totalNetTotal: (insuranceStat?.totalNetTotal || 0) + (returnInsuranceStat?.totalNetTotal || 0),
+      };
+      filteredStatistics.push(totalInsuranceEntry);
+    }
+    
+    // Add Total Online if Online or ReturnOnline exists
+    if (onlineStat || returnOnlineStat) {
+      const totalOnlineEntry = {
+        invoiceType: 'Total Online',
+        totalSales: (onlineStat?.totalSales || 0) + (returnOnlineStat?.totalSales || 0),
+        totalTransactions: (onlineStat?.totalTransactions || 0) + (returnOnlineStat?.totalTransactions || 0),
+        totalQuantity: (onlineStat?.totalQuantity || 0) + (returnOnlineStat?.totalQuantity || 0),
+        totalNetTotal: (onlineStat?.totalNetTotal || 0) + (returnOnlineStat?.totalNetTotal || 0),
+      };
+      filteredStatistics.push(totalOnlineEntry);
+    }
+    
+    // Calculate totals based on filtered statistics
+    const totalInvoiceTypes = filteredStatistics.length;
+    const grandTotalSales = filteredStatistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    const grandTotalTransactions = filteredStatistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
+    const grandTotalQuantity = filteredStatistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
     
     // Calculate percentage for each invoice type
-    const statisticsWithPercentage = statistics.map((stat) => ({
+    const statisticsWithPercentage = filteredStatistics.map((stat) => ({
       ...stat,
       percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
     }));
