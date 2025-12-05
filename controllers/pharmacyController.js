@@ -272,14 +272,13 @@ export const addPharmacist = async (req, res) => {
       });
     }
     
-    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      if (!pharmacy.supervisor || pharmacy.supervisor.toString() !== user._id.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. You are not authorized to modify this pharmacy.',
-        });
-      }
+    // Only admin can assign pharmacists
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can assign pharmacists.',
+        reason: 'You must be an administrator to assign pharmacists to pharmacies.',
+      });
     }
     
     // Initialize pharmacists array if it doesn't exist
@@ -338,14 +337,13 @@ export const removePharmacist = async (req, res) => {
       });
     }
     
-    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      if (!pharmacy.supervisor || pharmacy.supervisor.toString() !== user._id.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. You are not authorized to modify this pharmacy.',
-        });
-      }
+    // Only admin can remove pharmacists
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can remove pharmacists.',
+        reason: 'You must be an administrator to remove pharmacists from pharmacies.',
+      });
     }
     
     // Remove pharmacist from array
