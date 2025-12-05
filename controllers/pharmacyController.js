@@ -7,9 +7,15 @@ import colors from 'colors';
 export const getPharmacies = async (req, res) => {
   try {
     const { city, isActive, search } = req.query;
+    const user = req.user;
     
     // Build query object
     const query = {};
+    
+    // If user is a pharmacy supervisor, only show pharmacies assigned to them
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      query.supervisor = user._id;
+    }
     
     if (city) {
       query['address.city'] = new RegExp(city, 'i');
@@ -48,6 +54,7 @@ export const getPharmacies = async (req, res) => {
 // @access  Private
 export const getPharmacy = async (req, res) => {
   try {
+    const user = req.user;
     const pharmacy = await Pharmacy.findById(req.params.id)
       .populate('pharmacists', 'firstName lastName email phone username role whatsapp address')
       .populate('supervisor', 'firstName lastName email phone username role whatsapp address');
@@ -57,6 +64,16 @@ export const getPharmacy = async (req, res) => {
         success: false,
         message: 'Pharmacy not found',
       });
+    }
+    
+    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      if (!pharmacy.supervisor || pharmacy.supervisor._id.toString() !== user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You are not authorized to view this pharmacy.',
+        });
+      }
     }
     
     res.status(200).json({
@@ -78,6 +95,13 @@ export const getPharmacy = async (req, res) => {
 // @access  Private
 export const createPharmacy = async (req, res) => {
   try {
+    const user = req.user;
+    
+    // If user is a pharmacy supervisor, automatically set them as supervisor
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      req.body.supervisor = user._id;
+    }
+    
     const pharmacy = await Pharmacy.create(req.body);
     await pharmacy.populate('pharmacists', 'firstName lastName email phone username role whatsapp address');
     await pharmacy.populate('supervisor', 'firstName lastName email phone username role whatsapp address');
@@ -111,6 +135,30 @@ export const createPharmacy = async (req, res) => {
 // @access  Private
 export const updatePharmacy = async (req, res) => {
   try {
+    const user = req.user;
+    
+    // First, check if pharmacy exists and if user has permission
+    const existingPharmacy = await Pharmacy.findById(req.params.id);
+    
+    if (!existingPharmacy) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pharmacy not found',
+      });
+    }
+    
+    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      if (!existingPharmacy.supervisor || existingPharmacy.supervisor.toString() !== user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You are not authorized to update this pharmacy.',
+        });
+      }
+      // Prevent supervisor from changing the supervisor field
+      delete req.body.supervisor;
+    }
+    
     // Handle backward compatibility: if pharmacist (singular) is sent, convert to pharmacists array
     const updateData = { ...req.body };
     if (updateData.pharmacist !== undefined && updateData.pharmacists === undefined) {
@@ -129,13 +177,6 @@ export const updatePharmacy = async (req, res) => {
     )
       .populate('pharmacists', 'firstName lastName email phone username role whatsapp address')
       .populate('supervisor', 'firstName lastName email phone username role whatsapp address');
-    
-    if (!pharmacy) {
-      return res.status(404).json({
-        success: false,
-        message: 'Pharmacy not found',
-      });
-    }
     
     res.status(200).json({
       success: true,
@@ -166,7 +207,10 @@ export const updatePharmacy = async (req, res) => {
 // @access  Private
 export const deletePharmacy = async (req, res) => {
   try {
-    const pharmacy = await Pharmacy.findByIdAndDelete(req.params.id);
+    const user = req.user;
+    
+    // First, check if pharmacy exists and if user has permission
+    const pharmacy = await Pharmacy.findById(req.params.id);
     
     if (!pharmacy) {
       return res.status(404).json({
@@ -174,6 +218,18 @@ export const deletePharmacy = async (req, res) => {
         message: 'Pharmacy not found',
       });
     }
+    
+    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      if (!pharmacy.supervisor || pharmacy.supervisor.toString() !== user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You are not authorized to delete this pharmacy.',
+        });
+      }
+    }
+    
+    await Pharmacy.findByIdAndDelete(req.params.id);
     
     res.status(200).json({
       success: true,
@@ -195,6 +251,7 @@ export const deletePharmacy = async (req, res) => {
 // @access  Private
 export const addPharmacist = async (req, res) => {
   try {
+    const user = req.user;
     const { pharmacistId } = req.body;
     
     if (!pharmacistId) {
@@ -211,6 +268,16 @@ export const addPharmacist = async (req, res) => {
         success: false,
         message: 'Pharmacy not found',
       });
+    }
+    
+    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      if (!pharmacy.supervisor || pharmacy.supervisor.toString() !== user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You are not authorized to modify this pharmacy.',
+        });
+      }
     }
     
     // Initialize pharmacists array if it doesn't exist
@@ -257,6 +324,7 @@ export const addPharmacist = async (req, res) => {
 // @access  Private
 export const removePharmacist = async (req, res) => {
   try {
+    const user = req.user;
     const { pharmacistId } = req.params;
     
     const pharmacy = await Pharmacy.findById(req.params.id);
@@ -266,6 +334,16 @@ export const removePharmacist = async (req, res) => {
         success: false,
         message: 'Pharmacy not found',
       });
+    }
+    
+    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
+    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
+      if (!pharmacy.supervisor || pharmacy.supervisor.toString() !== user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You are not authorized to modify this pharmacy.',
+        });
+      }
     }
     
     // Remove pharmacist from array
