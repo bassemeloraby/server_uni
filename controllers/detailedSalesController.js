@@ -915,13 +915,33 @@ export const getSalesByInvoiceType = async (req, res) => {
       stat.invoiceType && stat.invoiceType.toLowerCase() === 'returnonline'
     );
     
-    // Filter out insurance, returninsurance, online, and returnonline
+    // Find and combine CashCustomer and ReturnCashCustomer into Total CashCustomer
+    const cashCustomerStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'cashcustomer'
+    );
+    const returnCashCustomerStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'returncashcustomer'
+    );
+    
+    // Find and combine Normal and Return into Total Normal
+    const normalStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'normal'
+    );
+    const returnStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'return'
+    );
+    
+    // Filter out insurance, returninsurance, online, returnonline, cashcustomer, returncashcustomer, normal, and return
     const filteredStatistics = statistics.filter(stat => {
       const invoiceTypeLower = stat.invoiceType?.toLowerCase();
       return invoiceTypeLower !== 'insurance' && 
              invoiceTypeLower !== 'returninsurance' &&
              invoiceTypeLower !== 'online' &&
-             invoiceTypeLower !== 'returnonline';
+             invoiceTypeLower !== 'returnonline' &&
+             invoiceTypeLower !== 'cashcustomer' &&
+             invoiceTypeLower !== 'returncashcustomer' &&
+             invoiceTypeLower !== 'normal' &&
+             invoiceTypeLower !== 'return';
     });
     
     // Add Total insurance if insurance or returninsurance exists
@@ -946,6 +966,30 @@ export const getSalesByInvoiceType = async (req, res) => {
         totalNetTotal: (onlineStat?.totalNetTotal || 0) + (returnOnlineStat?.totalNetTotal || 0),
       };
       filteredStatistics.push(totalOnlineEntry);
+    }
+    
+    // Add Total CashCustomer if CashCustomer or ReturnCashCustomer exists
+    if (cashCustomerStat || returnCashCustomerStat) {
+      const totalCashCustomerEntry = {
+        invoiceType: 'Total CashCustomer',
+        totalSales: (cashCustomerStat?.totalSales || 0) + (returnCashCustomerStat?.totalSales || 0),
+        totalTransactions: (cashCustomerStat?.totalTransactions || 0) + (returnCashCustomerStat?.totalTransactions || 0),
+        totalQuantity: (cashCustomerStat?.totalQuantity || 0) + (returnCashCustomerStat?.totalQuantity || 0),
+        totalNetTotal: (cashCustomerStat?.totalNetTotal || 0) + (returnCashCustomerStat?.totalNetTotal || 0),
+      };
+      filteredStatistics.push(totalCashCustomerEntry);
+    }
+    
+    // Add Total Normal if Normal or Return exists
+    if (normalStat || returnStat) {
+      const totalNormalEntry = {
+        invoiceType: 'Total Normal',
+        totalSales: (normalStat?.totalSales || 0) + (returnStat?.totalSales || 0),
+        totalTransactions: (normalStat?.totalTransactions || 0) + (returnStat?.totalTransactions || 0),
+        totalQuantity: (normalStat?.totalQuantity || 0) + (returnStat?.totalQuantity || 0),
+        totalNetTotal: (normalStat?.totalNetTotal || 0) + (returnStat?.totalNetTotal || 0),
+      };
+      filteredStatistics.push(totalNormalEntry);
     }
     
     // Calculate totals based on filtered statistics
