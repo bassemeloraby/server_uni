@@ -98,9 +98,13 @@ export const createPharmacy = async (req, res) => {
   try {
     const user = req.user;
     
-    // If user is a pharmacy supervisor, automatically set them as supervisor
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      req.body.supervisor = user._id;
+    // Only admin can create pharmacy
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can create pharmacies.',
+        reason: 'You must be an administrator to create new pharmacies.',
+      });
     }
     
     const pharmacy = await Pharmacy.create(req.body);
