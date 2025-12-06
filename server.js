@@ -7,6 +7,7 @@ import pharmacyRoutes from './routes/pharmacyRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import detailedSalesRoutes from './routes/detailedSalesRoutes.js';
+import incentiveItemRoutes from './routes/incentiveItemRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -31,6 +32,7 @@ app.use("/api/pharmacies", pharmacyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/detailed-sales", detailedSalesRoutes);
+app.use("/api/incentive-items", incentiveItemRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
