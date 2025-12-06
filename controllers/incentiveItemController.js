@@ -70,8 +70,10 @@ export const getIncentiveItems = async (req, res) => {
     
     // Determine sort order
     let sortOrder = { createdAt: -1 }; // Default sort
-    if (sortByIncentiveValue === 'true' || sortByIncentiveValue === true) {
+    if (sortByIncentiveValue === 'desc' || sortByIncentiveValue === 'true') {
       sortOrder = { 'incentive value': -1 }; // Sort by incentive value descending (largest to lowest)
+    } else if (sortByIncentiveValue === 'asc') {
+      sortOrder = { 'incentive value': 1 }; // Sort by incentive value ascending (lowest to largest)
     }
     
     const incentiveItems = await IncentiveItem.find(query)
