@@ -26,7 +26,8 @@ export const getIncentiveItems = async (req, res) => {
       minPrice,
       maxPrice,
       page = 1,
-      limit = 50
+      limit = 50,
+      sortByIncentiveValue
     } = req.query;
     
     // Build query object
@@ -67,8 +68,14 @@ export const getIncentiveItems = async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
     
+    // Determine sort order
+    let sortOrder = { createdAt: -1 }; // Default sort
+    if (sortByIncentiveValue === 'true' || sortByIncentiveValue === true) {
+      sortOrder = { 'incentive value': -1 }; // Sort by incentive value descending (largest to lowest)
+    }
+    
     const incentiveItems = await IncentiveItem.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sortOrder)
       .skip(skip)
       .limit(limitNum);
     
