@@ -27,7 +27,8 @@ export const getIncentiveItems = async (req, res) => {
       maxPrice,
       page = 1,
       limit = 50,
-      sortByIncentiveValue
+      sortByIncentiveValue,
+      sortByPrice
     } = req.query;
     
     // Build query object
@@ -68,9 +69,13 @@ export const getIncentiveItems = async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
     
-    // Determine sort order
+    // Determine sort order (priority: sortByPrice > sortByIncentiveValue > default)
     let sortOrder = { createdAt: -1 }; // Default sort
-    if (sortByIncentiveValue === 'desc' || sortByIncentiveValue === 'true') {
+    if (sortByPrice === 'desc' || sortByPrice === 'true') {
+      sortOrder = { Price: -1 }; // Sort by price descending (highest to lowest)
+    } else if (sortByPrice === 'asc') {
+      sortOrder = { Price: 1 }; // Sort by price ascending (lowest to highest)
+    } else if (sortByIncentiveValue === 'desc' || sortByIncentiveValue === 'true') {
       sortOrder = { 'incentive value': -1 }; // Sort by incentive value descending (largest to lowest)
     } else if (sortByIncentiveValue === 'asc') {
       sortOrder = { 'incentive value': 1 }; // Sort by incentive value ascending (lowest to largest)
