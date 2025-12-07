@@ -94,7 +94,7 @@ const pharmacySchema = new mongoose.Schema({
 // Index for faster search
 pharmacySchema.index({ name: 'text', 'address.city': 'text' });
 pharmacySchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
-pharmacySchema.index({ branchCode: 1 });
+// Note: branchCode index is automatically created by unique: true constraint
 
 const Pharmacy = mongoose.model('Pharmacy', pharmacySchema);
 
