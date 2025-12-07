@@ -53,7 +53,7 @@ const incentiveItemSchema = new mongoose.Schema({
 });
 
 // Index for faster search
-incentiveItemSchema.index({ SAP_Code: 1 });
+// Note: SAP_Code index is automatically created by unique: true
 incentiveItemSchema.index({ Description: 'text' });
 incentiveItemSchema.index({ Category: 1 });
 incentiveItemSchema.index({ 'Sub category': 1 });

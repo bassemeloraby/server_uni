@@ -16,13 +16,7 @@ dotenv.config();
 const app = express();
 
 // Middleware
-// Configure CORS with explicit options
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173', // Vite default port
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
