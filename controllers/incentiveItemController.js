@@ -52,7 +52,19 @@ export const getIncentiveItems = async (req, res) => {
     }
     
     if (search) {
-      query.$text = { $search: search };
+      // Check if search is a number (SAP Code)
+      const searchAsNumber = parseInt(search);
+      if (!isNaN(searchAsNumber) && searchAsNumber.toString() === search.trim()) {
+        // Search by SAP Code if it's a valid number
+        query.SAP_Code = searchAsNumber;
+      } else {
+        // Use regex search for Category, Division, and Description fields
+        query.$or = [
+          { Category: new RegExp(search, 'i') },
+          { Division: new RegExp(search, 'i') },
+          { Description: new RegExp(search, 'i') }
+        ];
+      }
     }
     
     if (description) {

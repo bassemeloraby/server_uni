@@ -43,7 +43,19 @@ export const getContests = async (req, res) => {
     }
     
     if (search) {
-      query.$text = { $search: search };
+      // Check if search is a number (SAP Code)
+      const searchAsNumber = parseInt(search);
+      if (!isNaN(searchAsNumber) && searchAsNumber.toString() === search.trim()) {
+        // Search by SAP Code if it's a valid number
+        query.SAP_Code = searchAsNumber;
+      } else {
+        // Use text search for Company and WH Description
+        query.$or = [
+          { Company: new RegExp(search, 'i') },
+          { 'WH Description': new RegExp(search, 'i') },
+          { Category: new RegExp(search, 'i') }
+        ];
+      }
     }
     
     if (minPrice || maxPrice) {
