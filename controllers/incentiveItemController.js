@@ -23,6 +23,7 @@ export const getIncentiveItems = async (req, res) => {
       'Sub category': SubCategory, 
       Division,
       search,
+      description,
       minPrice,
       maxPrice,
       page = 1,
@@ -52,6 +53,11 @@ export const getIncentiveItems = async (req, res) => {
     
     if (search) {
       query.$text = { $search: search };
+    }
+    
+    if (description) {
+      // Search for description (case-insensitive partial match)
+      query.Description = new RegExp(description, 'i');
     }
     
     if (minPrice || maxPrice) {
