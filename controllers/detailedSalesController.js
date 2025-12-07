@@ -5,7 +5,7 @@ import colors from 'colors';
 
 // @desc    Get all detailed sales
 // @route   GET /api/detailed-sales
-// @access  Private
+// @access  Private - Admin only
 export const getDetailedSales = async (req, res) => {
   try {
     const user = req.user;
@@ -21,66 +21,20 @@ export const getDetailedSales = async (req, res) => {
       search 
     } = req.query;
     
+    // Only admin can access detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view detailed sales.',
+        reason: 'You must be an administrator to access detailed sales.',
+      });
+    }
+    
     // Build query object
     const query = {};
     
-    // If user is a pharmacy supervisor, check permissions
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // If branchCode is provided, verify supervisor is assigned to that pharmacy
-      if (branchCode) {
-        const pharmacy = await Pharmacy.findOne({ branchCode: parseInt(branchCode) })
-          .populate('supervisor', '_id');
-        if (!pharmacy) {
-          return res.status(404).json({
-            success: false,
-            message: 'Pharmacy not found for the provided branch code',
-          });
-        }
-        
-        // Check if supervisor is assigned to this pharmacy
-        // Convert both IDs to strings for reliable comparison
-        const supervisorIdStr = pharmacy.supervisor 
-          ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
-          : null;
-        const userIdStr = user._id.toString();
-        
-        // Simple string comparison - most reliable
-        const isAuthorized = supervisorIdStr === userIdStr;
-        
-        if (!pharmacy.supervisor || !isAuthorized) {
-          return res.status(403).json({
-            success: false,
-            message: 'Access denied. You are not authorized to view reports for this pharmacy.',
-            reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can view pharmacy reports.',
-          });
-        }
-        
-        // Supervisor is authorized, add branchCode to query
-        query.BranchCode = parseInt(branchCode);
-      } else {
-        // If no branchCode provided, supervisor can only see reports for their assigned pharmacies
-        // Get all pharmacies assigned to this supervisor
-        const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
-        const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
-        
-        if (assignedBranchCodes.length === 0) {
-          // Supervisor has no assigned pharmacies, return empty result
-          return res.status(200).json({
-            success: true,
-            count: 0,
-            total: 0,
-            data: [],
-          });
-        }
-        
-        // Filter by assigned branch codes
-        query.BranchCode = { $in: assignedBranchCodes };
-      }
-    } else {
-      // For non-supervisors (admin, etc.), allow all queries
-      if (branchCode) {
-        query.BranchCode = parseInt(branchCode);
-      }
+    if (branchCode) {
+      query.BranchCode = parseInt(branchCode);
     }
     
     if (invoiceNumber) {
@@ -153,7 +107,7 @@ export const getDetailedSales = async (req, res) => {
 
 // @desc    Get single detailed sale
 // @route   GET /api/detailed-sales/:id
-// @access  Private
+// @access  Private - Admin only
 export const getDetailedSale = async (req, res) => {
   try {
     const user = req.user;
@@ -166,36 +120,13 @@ export const getDetailedSale = async (req, res) => {
       });
     }
     
-    // If user is a pharmacy supervisor, check permissions
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // Find the pharmacy with this branch code
-      const pharmacy = await Pharmacy.findOne({ branchCode: detailedSale.BranchCode })
-        .populate('supervisor', '_id');
-      
-      if (!pharmacy) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Pharmacy not found for this sale.',
-        });
-      }
-      
-      // Check if supervisor is assigned to this pharmacy
-      // Convert both IDs to strings for reliable comparison
-      const supervisorIdStr = pharmacy.supervisor 
-        ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
-        : null;
-      const userIdStr = user._id.toString();
-      
-      // Simple string comparison - most reliable
-      const isAuthorized = supervisorIdStr === userIdStr;
-      
-      if (!pharmacy.supervisor || !isAuthorized) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. You are not authorized to view this sale.',
-          reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can view pharmacy reports.',
-        });
-      }
+    // Only admin can access detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view detailed sales.',
+        reason: 'You must be an administrator to access detailed sales.',
+      });
     }
     
     res.status(200).json({
@@ -214,9 +145,20 @@ export const getDetailedSale = async (req, res) => {
 
 // @desc    Create new detailed sale
 // @route   POST /api/detailed-sales
-// @access  Private
+// @access  Private - Admin only
 export const createDetailedSale = async (req, res) => {
   try {
+    const user = req.user;
+    
+    // Only admin can create detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can create detailed sales.',
+        reason: 'You must be an administrator to create detailed sales.',
+      });
+    }
+    
     const detailedSale = await DetailedSales.create(req.body);
     
     res.status(201).json({
@@ -245,9 +187,20 @@ export const createDetailedSale = async (req, res) => {
 
 // @desc    Create multiple detailed sales (bulk insert)
 // @route   POST /api/detailed-sales/bulk
-// @access  Private
+// @access  Private - Admin only
 export const createBulkDetailedSales = async (req, res) => {
   try {
+    const user = req.user;
+    
+    // Only admin can bulk create detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can bulk create detailed sales.',
+        reason: 'You must be an administrator to bulk create detailed sales.',
+      });
+    }
+    
     const { sales } = req.body;
     
     if (!Array.isArray(sales) || sales.length === 0) {
@@ -288,12 +241,20 @@ export const createBulkDetailedSales = async (req, res) => {
 
 // @desc    Update detailed sale
 // @route   PUT /api/detailed-sales/:id
-// @access  Private
+// @access  Private - Admin only
 export const updateDetailedSale = async (req, res) => {
   try {
     const user = req.user;
     
-    // First, get the existing sale to check permissions
+    // Only admin can update detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can update detailed sales.',
+        reason: 'You must be an administrator to update detailed sales.',
+      });
+    }
+    
     const existingSale = await DetailedSales.findById(req.params.id);
     
     if (!existingSale) {
@@ -301,35 +262,6 @@ export const updateDetailedSale = async (req, res) => {
         success: false,
         message: 'Detailed sale not found',
       });
-    }
-    
-    // If user is a pharmacy supervisor, check permissions
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // Find the pharmacy with this branch code
-      const pharmacy = await Pharmacy.findOne({ branchCode: existingSale.BranchCode })
-        .populate('supervisor', '_id');
-      
-      if (!pharmacy) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Pharmacy not found for this sale.',
-        });
-      }
-      
-      // Check if supervisor is assigned to this pharmacy
-      const supervisorIdStr = pharmacy.supervisor 
-        ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
-        : null;
-      const userIdStr = user._id.toString();
-      const isAuthorized = supervisorIdStr === userIdStr;
-      
-      if (!pharmacy.supervisor || !isAuthorized) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. You are not authorized to update this sale.',
-          reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can modify pharmacy reports.',
-        });
-      }
     }
     
     const detailedSale = await DetailedSales.findByIdAndUpdate(
@@ -367,12 +299,20 @@ export const updateDetailedSale = async (req, res) => {
 
 // @desc    Delete detailed sale
 // @route   DELETE /api/detailed-sales/:id
-// @access  Private
+// @access  Private - Admin only
 export const deleteDetailedSale = async (req, res) => {
   try {
     const user = req.user;
     
-    // First, get the existing sale to check permissions
+    // Only admin can delete detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can delete detailed sales.',
+        reason: 'You must be an administrator to delete detailed sales.',
+      });
+    }
+    
     const existingSale = await DetailedSales.findById(req.params.id);
     
     if (!existingSale) {
@@ -380,35 +320,6 @@ export const deleteDetailedSale = async (req, res) => {
         success: false,
         message: 'Detailed sale not found',
       });
-    }
-    
-    // If user is a pharmacy supervisor, check permissions
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // Find the pharmacy with this branch code
-      const pharmacy = await Pharmacy.findOne({ branchCode: existingSale.BranchCode })
-        .populate('supervisor', '_id');
-      
-      if (!pharmacy) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Pharmacy not found for this sale.',
-        });
-      }
-      
-      // Check if supervisor is assigned to this pharmacy
-      const supervisorIdStr = pharmacy.supervisor 
-        ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
-        : null;
-      const userIdStr = user._id.toString();
-      const isAuthorized = supervisorIdStr === userIdStr;
-      
-      if (!pharmacy.supervisor || !isAuthorized) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. You are not authorized to delete this sale.',
-          reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can delete pharmacy reports.',
-        });
-      }
     }
     
     const detailedSale = await DetailedSales.findByIdAndDelete(req.params.id);
@@ -430,77 +341,25 @@ export const deleteDetailedSale = async (req, res) => {
 
 // @desc    Get sales statistics
 // @route   GET /api/detailed-sales/stats/summary
-// @access  Private
+// @access  Private - Admin only
 export const getSalesStatistics = async (req, res) => {
   try {
     const user = req.user;
     const { branchCode, startDate, endDate } = req.query;
     
+    // Only admin can access sales statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view sales statistics.',
+        reason: 'You must be an administrator to access sales statistics.',
+      });
+    }
+    
     const query = {};
     
-    // If user is a pharmacy supervisor, check permissions
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // If branchCode is provided, verify supervisor is assigned to that pharmacy
-      if (branchCode) {
-        const pharmacy = await Pharmacy.findOne({ branchCode: parseInt(branchCode) })
-          .populate('supervisor', '_id');
-        if (!pharmacy) {
-          return res.status(404).json({
-            success: false,
-            message: 'Pharmacy not found for the provided branch code',
-          });
-        }
-        
-        // Check if supervisor is assigned to this pharmacy
-        // Convert both IDs to strings for reliable comparison
-        const supervisorIdStr = pharmacy.supervisor 
-          ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
-          : null;
-        const userIdStr = user._id.toString();
-        
-        // Simple string comparison - most reliable
-        const isAuthorized = supervisorIdStr === userIdStr;
-        
-        if (!pharmacy.supervisor || !isAuthorized) {
-          return res.status(403).json({
-            success: false,
-            message: 'Access denied. You are not authorized to view statistics for this pharmacy.',
-            reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can view pharmacy statistics.',
-          });
-        }
-        
-        // Supervisor is authorized, add branchCode to query
-        query.BranchCode = parseInt(branchCode);
-      } else {
-        // If no branchCode provided, supervisor can only see statistics for their assigned pharmacies
-        // Get all pharmacies assigned to this supervisor
-        const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
-        const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
-        
-        if (assignedBranchCodes.length === 0) {
-          // Supervisor has no assigned pharmacies, return empty statistics
-          return res.status(200).json({
-            success: true,
-            data: {
-              totalSales: 0,
-              totalItems: 0,
-              totalDiscount: 0,
-              totalVAT: 0,
-              totalDeliveryFees: 0,
-              count: 0,
-              averageSale: 0,
-            },
-          });
-        }
-        
-        // Filter by assigned branch codes
-        query.BranchCode = { $in: assignedBranchCodes };
-      }
-    } else {
-      // For non-supervisors (admin, etc.), allow all queries
-      if (branchCode) {
-        query.BranchCode = parseInt(branchCode);
-      }
+    if (branchCode) {
+      query.BranchCode = parseInt(branchCode);
     }
     
     if (startDate && endDate) {
@@ -550,38 +409,22 @@ export const getSalesStatistics = async (req, res) => {
 
 // @desc    Get pharmacy statistics by branch code
 // @route   GET /api/detailed-sales/stats/pharmacies-by-branch
-// @access  Private
+// @access  Private - Admin only
 export const getPharmaciesByBranchCode = async (req, res) => {
   try {
     const user = req.user;
     
-    // Build query for branch codes based on user role
-    let branchCodeQuery = {};
-    
-    // If user is a pharmacy supervisor, only show statistics for pharmacies assigned to them
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // Get all pharmacies assigned to this supervisor
-      const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
-      const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
-      
-      if (assignedBranchCodes.length === 0) {
-        // Supervisor has no assigned pharmacies, return empty statistics
-        return res.status(200).json({
-          success: true,
-          data: {
-            statistics: [],
-            summary: {
-              totalBranchCodes: 0,
-              totalPharmacies: 0,
-              totalSales: 0,
-            },
-          },
-        });
-      }
-      
-      // Filter by assigned branch codes
-      branchCodeQuery = { BranchCode: { $in: assignedBranchCodes } };
+    // Only admin can access pharmacy statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view pharmacy statistics.',
+        reason: 'You must be an administrator to access pharmacy statistics.',
+      });
     }
+    
+    // Build query for branch codes
+    let branchCodeQuery = {};
     
     // Get all distinct branch codes from detailed sales (filtered by supervisor if applicable)
     const distinctBranchCodes = await DetailedSales.distinct('BranchCode', branchCodeQuery);
@@ -607,23 +450,12 @@ export const getPharmaciesByBranchCode = async (req, res) => {
     const statistics = await Promise.all(
       distinctBranchCodes.map(async (branchCode) => {
         const pharmacyQuery = { branchCode };
-        // If supervisor, only count pharmacies assigned to them
-        if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-          const assignedPharmacies = await Pharmacy.find({ supervisor: user._id, branchCode });
-          const pharmacyCount = assignedPharmacies.length;
-          return {
-            branchCode,
-            pharmacyCount,
-            totalSales: salesMap[branchCode] || 0,
-          };
-        } else {
-          const pharmacyCount = await Pharmacy.countDocuments(pharmacyQuery);
-          return {
-            branchCode,
-            pharmacyCount,
-            totalSales: salesMap[branchCode] || 0,
-          };
-        }
+        const pharmacyCount = await Pharmacy.countDocuments(pharmacyQuery);
+        return {
+          branchCode,
+          pharmacyCount,
+          totalSales: salesMap[branchCode] || 0,
+        };
       })
     );
     
@@ -631,14 +463,7 @@ export const getPharmaciesByBranchCode = async (req, res) => {
     statistics.sort((a, b) => a.branchCode - b.branchCode);
     
     // Calculate totals
-    let totalPharmacies;
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // Count only pharmacies assigned to supervisor
-      const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
-      totalPharmacies = assignedPharmacies.length;
-    } else {
-      totalPharmacies = await Pharmacy.countDocuments();
-    }
+    const totalPharmacies = await Pharmacy.countDocuments();
     const totalBranchCodes = distinctBranchCodes.length;
     const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
     
@@ -671,74 +496,26 @@ export const getPharmaciesByBranchCode = async (req, res) => {
 
 // @desc    Get sales statistics by sales name
 // @route   GET /api/detailed-sales/stats/sales-by-name
-// @access  Private
+// @access  Private - Admin only
 export const getSalesBySalesName = async (req, res) => {
   try {
     const user = req.user;
     const { branchCode } = req.query;
     
-    // Build query for branch codes based on user role
+    // Only admin can access sales statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view sales statistics.',
+        reason: 'You must be an administrator to access sales statistics.',
+      });
+    }
+    
+    // Build query for branch codes
     let branchCodeQuery = {};
     
-    // If user is a pharmacy supervisor, only show sales from pharmacies assigned to them
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // If branchCode is provided, verify supervisor is assigned to that pharmacy
-      if (branchCode) {
-        const pharmacy = await Pharmacy.findOne({ branchCode: parseInt(branchCode) })
-          .populate('supervisor', '_id');
-        if (!pharmacy) {
-          return res.status(404).json({
-            success: false,
-            message: 'Pharmacy not found for the provided branch code',
-          });
-        }
-        
-        // Check if supervisor is assigned to this pharmacy
-        const supervisorIdStr = pharmacy.supervisor 
-          ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
-          : null;
-        const userIdStr = user._id.toString();
-        const isAuthorized = supervisorIdStr === userIdStr;
-        
-        if (!pharmacy.supervisor || !isAuthorized) {
-          return res.status(403).json({
-            success: false,
-            message: 'Access denied. You are not authorized to view statistics for this pharmacy.',
-            reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can view pharmacy statistics.',
-          });
-        }
-        
-        // Supervisor is authorized, add branchCode to query
-        branchCodeQuery = { BranchCode: parseInt(branchCode) };
-      } else {
-        // Get all pharmacies assigned to this supervisor
-        const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
-        const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
-        
-        if (assignedBranchCodes.length === 0) {
-          // Supervisor has no assigned pharmacies, return empty statistics
-          return res.status(200).json({
-            success: true,
-            data: {
-              statistics: [],
-              summary: {
-                totalSalesPersons: 0,
-                totalSales: 0,
-                totalTransactions: 0,
-                totalQuantity: 0,
-              },
-            },
-          });
-        }
-        
-        // Filter by assigned branch codes
-        branchCodeQuery = { BranchCode: { $in: assignedBranchCodes } };
-      }
-    } else {
-      // For non-supervisors (admin, etc.), allow all queries
-      if (branchCode) {
-        branchCodeQuery = { BranchCode: parseInt(branchCode) };
-      }
+    if (branchCode) {
+      branchCodeQuery = { BranchCode: parseInt(branchCode) };
     }
     
     // Aggregate sales by SalesName (filtered by supervisor if applicable)
@@ -803,74 +580,26 @@ export const getSalesBySalesName = async (req, res) => {
 
 // @desc    Get sales statistics by invoice type
 // @route   GET /api/detailed-sales/stats/sales-by-invoice-type
-// @access  Private
+// @access  Private - Admin only
 export const getSalesByInvoiceType = async (req, res) => {
   try {
     const user = req.user;
     const { branchCode } = req.query;
     
-    // Build query for branch codes based on user role
+    // Only admin can access sales statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view sales statistics.',
+        reason: 'You must be an administrator to access sales statistics.',
+      });
+    }
+    
+    // Build query for branch codes
     let branchCodeQuery = {};
     
-    // If user is a pharmacy supervisor, only show sales from pharmacies assigned to them
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      // If branchCode is provided, verify supervisor is assigned to that pharmacy
-      if (branchCode) {
-        const pharmacy = await Pharmacy.findOne({ branchCode: parseInt(branchCode) })
-          .populate('supervisor', '_id');
-        if (!pharmacy) {
-          return res.status(404).json({
-            success: false,
-            message: 'Pharmacy not found for the provided branch code',
-          });
-        }
-        
-        // Check if supervisor is assigned to this pharmacy
-        const supervisorIdStr = pharmacy.supervisor 
-          ? (pharmacy.supervisor._id ? pharmacy.supervisor._id.toString() : pharmacy.supervisor.toString())
-          : null;
-        const userIdStr = user._id.toString();
-        const isAuthorized = supervisorIdStr === userIdStr;
-        
-        if (!pharmacy.supervisor || !isAuthorized) {
-          return res.status(403).json({
-            success: false,
-            message: 'Access denied. You are not authorized to view statistics for this pharmacy.',
-            reason: 'You are not assigned as a supervisor for this pharmacy. Only the assigned supervisor or an administrator can view pharmacy statistics.',
-          });
-        }
-        
-        // Supervisor is authorized, add branchCode to query
-        branchCodeQuery = { BranchCode: parseInt(branchCode) };
-      } else {
-        // Get all pharmacies assigned to this supervisor
-        const assignedPharmacies = await Pharmacy.find({ supervisor: user._id });
-        const assignedBranchCodes = assignedPharmacies.map(p => p.branchCode);
-        
-        if (assignedBranchCodes.length === 0) {
-          // Supervisor has no assigned pharmacies, return empty statistics
-          return res.status(200).json({
-            success: true,
-            data: {
-              statistics: [],
-              summary: {
-                totalInvoiceTypes: 0,
-                totalSales: 0,
-                totalTransactions: 0,
-                totalQuantity: 0,
-              },
-            },
-          });
-        }
-        
-        // Filter by assigned branch codes
-        branchCodeQuery = { BranchCode: { $in: assignedBranchCodes } };
-      }
-    } else {
-      // For non-supervisors (admin, etc.), allow all queries
-      if (branchCode) {
-        branchCodeQuery = { BranchCode: parseInt(branchCode) };
-      }
+    if (branchCode) {
+      branchCodeQuery = { BranchCode: parseInt(branchCode) };
     }
     
     // Aggregate sales by InvoiceType (filtered by supervisor if applicable)
