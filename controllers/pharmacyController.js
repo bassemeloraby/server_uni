@@ -211,7 +211,16 @@ export const deletePharmacy = async (req, res) => {
   try {
     const user = req.user;
     
-    // First, check if pharmacy exists and if user has permission
+    // Only admin can delete pharmacy
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can delete pharmacies.',
+        reason: 'You must be an administrator to delete pharmacies.',
+      });
+    }
+    
+    // First, check if pharmacy exists
     const pharmacy = await Pharmacy.findById(req.params.id);
     
     if (!pharmacy) {
@@ -219,16 +228,6 @@ export const deletePharmacy = async (req, res) => {
         success: false,
         message: 'Pharmacy not found',
       });
-    }
-    
-    // If user is a pharmacy supervisor, check if they are the supervisor of this pharmacy
-    if (user && user.role && user.role.toLowerCase() === 'pharmacy supervisor') {
-      if (!pharmacy.supervisor || pharmacy.supervisor.toString() !== user._id.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. You are not authorized to delete this pharmacy.',
-        });
-      }
     }
     
     await Pharmacy.findByIdAndDelete(req.params.id);

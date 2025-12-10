@@ -500,7 +500,7 @@ export const getPharmaciesByBranchCode = async (req, res) => {
 export const getSalesBySalesName = async (req, res) => {
   try {
     const user = req.user;
-    const { branchCode } = req.query;
+    const { branchCode, year, month } = req.query;
     
     // Only admin can access sales statistics
     if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
@@ -511,16 +511,27 @@ export const getSalesBySalesName = async (req, res) => {
       });
     }
     
-    // Build query for branch codes
-    let branchCodeQuery = {};
+    // Build query for branch codes and date range
+    let query = {};
     
     if (branchCode) {
-      branchCodeQuery = { BranchCode: parseInt(branchCode) };
+      query.BranchCode = parseInt(branchCode);
+    }
+    
+    // Add date filter if year and month are provided
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      
+      query.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
     }
     
     // Aggregate sales by SalesName (filtered by supervisor if applicable)
     const salesByName = await DetailedSales.aggregate([
-      ...(Object.keys(branchCodeQuery).length > 0 ? [{ $match: branchCodeQuery }] : []),
+      ...(Object.keys(query).length > 0 ? [{ $match: query }] : []),
       {
         $group: {
           _id: '$SalesName',
@@ -584,7 +595,7 @@ export const getSalesBySalesName = async (req, res) => {
 export const getSalesByInvoiceType = async (req, res) => {
   try {
     const user = req.user;
-    const { branchCode } = req.query;
+    const { branchCode, year, month } = req.query;
     
     // Only admin can access sales statistics
     if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
@@ -595,16 +606,27 @@ export const getSalesByInvoiceType = async (req, res) => {
       });
     }
     
-    // Build query for branch codes
-    let branchCodeQuery = {};
+    // Build query for branch codes and date range
+    let query = {};
     
     if (branchCode) {
-      branchCodeQuery = { BranchCode: parseInt(branchCode) };
+      query.BranchCode = parseInt(branchCode);
+    }
+    
+    // Add date filter if year and month are provided
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      
+      query.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
     }
     
     // Aggregate sales by InvoiceType (filtered by supervisor if applicable)
     const salesByInvoiceType = await DetailedSales.aggregate([
-      ...(Object.keys(branchCodeQuery).length > 0 ? [{ $match: branchCodeQuery }] : []),
+      ...(Object.keys(query).length > 0 ? [{ $match: query }] : []),
       {
         $group: {
           _id: '$InvoiceType',
@@ -652,6 +674,22 @@ export const getSalesByInvoiceType = async (req, res) => {
       stat.invoiceType && stat.invoiceType.toLowerCase() === 'returncashcustomer'
     );
     
+    // Find and combine CreditCustomer and ReturnCreditCustomer into Total CreditCustomer
+    const creditCustomerStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'creditcustomer'
+    );
+    const returnCreditCustomerStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'returncreditcustomer'
+    );
+    
+    // Find and combine Wasfaty and ReturnWasfaty into Total Wasfaty
+    const wasfatyStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'wasfaty'
+    );
+    const returnWasfatyStat = statistics.find(stat => 
+      stat.invoiceType && stat.invoiceType.toLowerCase() === 'returnwasfaty'
+    );
+    
     // Find and combine Normal and Return into Total Normal
     const normalStat = statistics.find(stat => 
       stat.invoiceType && stat.invoiceType.toLowerCase() === 'normal'
@@ -660,7 +698,7 @@ export const getSalesByInvoiceType = async (req, res) => {
       stat.invoiceType && stat.invoiceType.toLowerCase() === 'return'
     );
     
-    // Filter out insurance, returninsurance, online, returnonline, cashcustomer, returncashcustomer, normal, and return
+    // Filter out insurance, returninsurance, online, returnonline, cashcustomer, returncashcustomer, creditcustomer, returncreditcustomer, wasfaty, returnwasfaty, normal, and return
     const filteredStatistics = statistics.filter(stat => {
       const invoiceTypeLower = stat.invoiceType?.toLowerCase();
       return invoiceTypeLower !== 'insurance' && 
@@ -669,6 +707,10 @@ export const getSalesByInvoiceType = async (req, res) => {
              invoiceTypeLower !== 'returnonline' &&
              invoiceTypeLower !== 'cashcustomer' &&
              invoiceTypeLower !== 'returncashcustomer' &&
+             invoiceTypeLower !== 'creditcustomer' &&
+             invoiceTypeLower !== 'returncreditcustomer' &&
+             invoiceTypeLower !== 'wasfaty' &&
+             invoiceTypeLower !== 'returnwasfaty' &&
              invoiceTypeLower !== 'normal' &&
              invoiceTypeLower !== 'return';
     });
@@ -707,6 +749,30 @@ export const getSalesByInvoiceType = async (req, res) => {
         totalNetTotal: (cashCustomerStat?.totalNetTotal || 0) + (returnCashCustomerStat?.totalNetTotal || 0),
       };
       filteredStatistics.push(totalCashCustomerEntry);
+    }
+    
+    // Add Total CreditCustomer if CreditCustomer or ReturnCreditCustomer exists
+    if (creditCustomerStat || returnCreditCustomerStat) {
+      const totalCreditCustomerEntry = {
+        invoiceType: 'Total CreditCustomer',
+        totalSales: (creditCustomerStat?.totalSales || 0) + (returnCreditCustomerStat?.totalSales || 0),
+        totalTransactions: (creditCustomerStat?.totalTransactions || 0) + (returnCreditCustomerStat?.totalTransactions || 0),
+        totalQuantity: (creditCustomerStat?.totalQuantity || 0) + (returnCreditCustomerStat?.totalQuantity || 0),
+        totalNetTotal: (creditCustomerStat?.totalNetTotal || 0) + (returnCreditCustomerStat?.totalNetTotal || 0),
+      };
+      filteredStatistics.push(totalCreditCustomerEntry);
+    }
+    
+    // Add Total Wasfaty if Wasfaty or ReturnWasfaty exists
+    if (wasfatyStat || returnWasfatyStat) {
+      const totalWasfatyEntry = {
+        invoiceType: 'Total Wasfaty',
+        totalSales: (wasfatyStat?.totalSales || 0) + (returnWasfatyStat?.totalSales || 0),
+        totalTransactions: (wasfatyStat?.totalTransactions || 0) + (returnWasfatyStat?.totalTransactions || 0),
+        totalQuantity: (wasfatyStat?.totalQuantity || 0) + (returnWasfatyStat?.totalQuantity || 0),
+        totalNetTotal: (wasfatyStat?.totalNetTotal || 0) + (returnWasfatyStat?.totalNetTotal || 0),
+      };
+      filteredStatistics.push(totalWasfatyEntry);
     }
     
     // Add Total Normal if Normal or Return exists
@@ -750,6 +816,254 @@ export const getSalesByInvoiceType = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching sales statistics by invoice type',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get sales statistics by month
+// @route   GET /api/detailed-sales/stats/sales-by-month
+// @access  Private - Admin only
+export const getSalesByMonth = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode } = req.query;
+    
+    // Only admin can access sales statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view sales statistics.',
+        reason: 'You must be an administrator to access sales statistics.',
+      });
+    }
+    
+    // Build query for branch codes
+    let branchCodeQuery = {};
+    
+    if (branchCode) {
+      branchCodeQuery = { BranchCode: parseInt(branchCode) };
+    }
+    
+    // Aggregate sales by month
+    const salesByMonth = await DetailedSales.aggregate([
+      ...(Object.keys(branchCodeQuery).length > 0 ? [{ $match: branchCodeQuery }] : []),
+      {
+        $group: {
+          _id: {
+            year: { $year: '$InvoiceDate' },
+            month: { $month: '$InvoiceDate' },
+          },
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      {
+        $sort: { '_id.year': 1, '_id.month': 1 }, // Sort by year and month ascending
+      },
+    ]);
+    
+    // Get count of unique days with invoices per month
+    const daysWithInvoices = await DetailedSales.aggregate([
+      ...(Object.keys(branchCodeQuery).length > 0 ? [{ $match: branchCodeQuery }] : []),
+      {
+        $group: {
+          _id: {
+            year: { $year: '$InvoiceDate' },
+            month: { $month: '$InvoiceDate' },
+            day: { $dayOfMonth: '$InvoiceDate' },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: '$_id.year',
+            month: '$_id.month',
+          },
+          uniqueDays: { $sum: 1 },
+        },
+      },
+    ]);
+    
+    // Create a map for quick lookup
+    const daysMap = {};
+    daysWithInvoices.forEach((item) => {
+      const key = `${item._id.year}-${item._id.month}`;
+      daysMap[key] = item.uniqueDays;
+    });
+    
+    // Format the results
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const statistics = salesByMonth.map((item) => {
+      const key = `${item._id.year}-${item._id.month}`;
+      const daysWithInvoicesCount = daysMap[key] || 0;
+      const totalSales = item.totalSales || 0;
+      const averageSalesPerDay = daysWithInvoicesCount > 0 ? totalSales / daysWithInvoicesCount : 0;
+      
+      return {
+        year: item._id.year,
+        month: item._id.month,
+        monthName: monthNames[item._id.month - 1],
+        monthYear: `${monthNames[item._id.month - 1]} ${item._id.year}`,
+        totalSales: totalSales,
+        totalTransactions: item.totalTransactions || 0,
+        totalQuantity: item.totalQuantity || 0,
+        totalNetTotal: item.totalNetTotal || 0,
+        averageSalesPerDay: averageSalesPerDay,
+        daysWithInvoices: daysWithInvoicesCount,
+      };
+    });
+    
+    // Calculate totals
+    const totalMonths = statistics.length;
+    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
+    
+    // Calculate percentage for each month
+    const statisticsWithPercentage = statistics.map((stat) => ({
+      ...stat,
+      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
+    }));
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics: statisticsWithPercentage,
+        summary: {
+          totalMonths,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sales statistics by month:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sales statistics by month',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get sales statistics by day for a specific month
+// @route   GET /api/detailed-sales/stats/sales-by-day
+// @access  Private - Admin only
+export const getSalesByDay = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode, year, month } = req.query;
+    
+    // Only admin can access sales statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view sales statistics.',
+        reason: 'You must be an administrator to access sales statistics.',
+      });
+    }
+    
+    if (!year || !month) {
+      return res.status(400).json({
+        success: false,
+        message: 'Year and month are required',
+      });
+    }
+    
+    // Build query for branch codes and date range
+    let query = {};
+    
+    if (branchCode) {
+      query.BranchCode = parseInt(branchCode);
+    }
+    
+    // Set date range for the specific month
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+    
+    query.InvoiceDate = {
+      $gte: startDate,
+      $lte: endDate,
+    };
+    
+    // Aggregate sales by day
+    const salesByDay = await DetailedSales.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$InvoiceDate' },
+            month: { $month: '$InvoiceDate' },
+            day: { $dayOfMonth: '$InvoiceDate' },
+          },
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      {
+        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 }, // Sort by year, month, and day ascending
+      },
+    ]);
+    
+    // Format the results
+    const statistics = salesByDay.map((item) => {
+      const date = new Date(item._id.year, item._id.month - 1, item._id.day);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+      
+      return {
+        year: item._id.year,
+        month: item._id.month,
+        day: item._id.day,
+        date: date.toISOString().split('T')[0],
+        dayName: dayName,
+        dayLabel: `${item._id.day} (${dayName})`,
+        totalSales: item.totalSales || 0,
+        totalTransactions: item.totalTransactions || 0,
+        totalQuantity: item.totalQuantity || 0,
+        totalNetTotal: item.totalNetTotal || 0,
+      };
+    });
+    
+    // Calculate totals
+    const totalDays = statistics.length;
+    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
+    
+    // Calculate percentage for each day
+    const statisticsWithPercentage = statistics.map((stat) => ({
+      ...stat,
+      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
+    }));
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics: statisticsWithPercentage,
+        summary: {
+          totalDays,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sales statistics by day:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sales statistics by day',
       error: error.message,
     });
   }

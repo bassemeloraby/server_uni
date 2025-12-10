@@ -10,6 +10,8 @@ import {
   getPharmaciesByBranchCode,
   getSalesBySalesName,
   getSalesByInvoiceType,
+  getSalesByMonth,
+  getSalesByDay,
 } from '../controllers/detailedSalesController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -30,6 +32,12 @@ router.route('/stats/sales-by-name')
 
 router.route('/stats/sales-by-invoice-type')
   .get(getSalesByInvoiceType);
+
+router.route('/stats/sales-by-month')
+  .get(getSalesByMonth);
+
+router.route('/stats/sales-by-day')
+  .get(getSalesByDay);
 
 // Bulk create route (must come before generic routes)
 router.route('/bulk')
