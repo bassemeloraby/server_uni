@@ -31,6 +31,10 @@ const detailedSalesSchema = new mongoose.Schema({
     required: [true, 'Sales name is required'],
     trim: true,
   },
+  CustomerName: {
+    type: String,
+    trim: true,
+  },
   MaterialNumber: {
     type: Number,
     required: [true, 'Material number is required'],

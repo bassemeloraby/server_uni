@@ -18,7 +18,8 @@ export const getDetailedSales = async (req, res) => {
       materialNumber,
       startDate,
       endDate,
-      search 
+      search,
+      customerName,
     } = req.query;
     
     // Only admin can access detailed sales
@@ -72,6 +73,10 @@ export const getDetailedSales = async (req, res) => {
     
     if (salesName) {
       query.SalesName = new RegExp(salesName, 'i');
+    }
+
+    if (customerName) {
+      query.CustomerName = new RegExp(customerName, 'i');
     }
     
     if (materialNumber) {
@@ -138,6 +143,197 @@ export const getDetailedSale = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching detailed sale',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get cash detailed sales (filtered by specific customer names)
+// @route   GET /api/detailed-sales/cash-detailed
+// @access  Private - Admin only
+export const getAllCashDetailedSales = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode, year, month, limit, skip } = req.query;
+    
+    // Only admin can access detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view detailed sales.',
+        reason: 'You must be an administrator to access detailed sales.',
+      });
+    }
+
+    // Allowed cash customer names
+    const cashCustomerNames = [
+      'N/A',
+      'Milk Discount',
+      'Hospitals & Clinics employee',
+      'Ministry of Human Resources and Soc',
+      'TAMARA',
+      'Near Care',
+      'Saudi Tabby for Communications and',
+    ];
+
+    // Build query
+    const query = {
+      CustomerName: { $in: cashCustomerNames },
+    };
+
+    if (branchCode) {
+      query.BranchCode = parseInt(branchCode);
+    }
+
+    // Date filter by year-month if provided
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      query.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const pageLimit = parseInt(limit) || 100;
+    const pageSkip = parseInt(skip) || 0;
+
+    const cashSales = await DetailedSales.find(query)
+      .sort({ InvoiceDate: -1, createdAt: -1 })
+      .limit(pageLimit)
+      .skip(pageSkip);
+
+    const total = await DetailedSales.countDocuments(query);
+
+    // Summary aggregation
+    const summaryAgg = await DetailedSales.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+    ]);
+
+    const summary = summaryAgg.length > 0 ? summaryAgg[0] : {
+      totalSales: 0,
+      totalTransactions: 0,
+      totalQuantity: 0,
+      totalNetTotal: 0,
+    };
+
+    res.status(200).json({
+      success: true,
+      count: cashSales.length,
+      total,
+      data: cashSales,
+      summary: {
+        totalSales: summary.totalSales || 0,
+        totalTransactions: summary.totalTransactions || 0,
+        totalQuantity: summary.totalQuantity || 0,
+        totalNetTotal: summary.totalNetTotal || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching cash detailed sales:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching cash detailed sales',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get cash detailed sales statistics grouped by CustomerName
+// @route   GET /api/detailed-sales/cash-detailed/statistics
+// @access  Private - Admin only
+export const getCashDetailedSalesStatistics = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode, year, month } = req.query;
+
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view detailed sales.',
+        reason: 'You must be an administrator to access detailed sales.',
+      });
+    }
+
+    const cashCustomerNames = [
+      'N/A',
+      'Milk Discount',
+      'Hospitals & Clinics employee',
+      'Ministry of Human Resources and Soc',
+      'TAMARA',
+      'Near Care',
+      'Saudi Tabby for Communications and',
+    ];
+
+    const match = {
+      CustomerName: { $in: cashCustomerNames },
+    };
+
+    if (branchCode) {
+      match.BranchCode = parseInt(branchCode);
+    }
+
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      match.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const stats = await DetailedSales.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$CustomerName',
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      { $sort: { totalSales: -1 } },
+    ]);
+
+    const statistics = stats.map((item) => ({
+      customerName: item._id,
+      totalSales: item.totalSales || 0,
+      totalTransactions: item.totalTransactions || 0,
+      totalQuantity: item.totalQuantity || 0,
+      totalNetTotal: item.totalNetTotal || 0,
+    }));
+
+    const grandTotalSales = statistics.reduce((sum, s) => sum + s.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, s) => sum + s.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, s) => sum + s.totalQuantity, 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics,
+        summary: {
+          totalCustomers: statistics.length,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching cash detailed sales statistics:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching cash detailed sales statistics',
       error: error.message,
     });
   }
@@ -1064,104 +1260,6 @@ export const getSalesByDay = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching sales statistics by day',
-      error: error.message,
-    });
-  }
-};
-
-// @desc    Get sales statistics by customer name
-// @route   GET /api/detailed-sales/stats/sales-by-customer-name
-// @access  Private - Admin only
-export const getSalesByCustomerName = async (req, res) => {
-  try {
-    const user = req.user;
-    const { branchCode, year, month } = req.query;
-    
-    // Only admin can access sales statistics
-    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Only administrators can view sales statistics.',
-        reason: 'You must be an administrator to access sales statistics.',
-      });
-    }
-    
-    // Build query for branch codes and date range
-    let query = {};
-    
-    if (branchCode) {
-      query.BranchCode = parseInt(branchCode);
-    }
-    
-    // Add date filter if year and month are provided
-    if (year && month) {
-      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
-      
-      query.InvoiceDate = {
-        $gte: startDate,
-        $lte: endDate,
-      };
-    }
-    
-    // Filter out documents without CustomerName
-    query.CustomerName = { $exists: true, $ne: null, $ne: '' };
-    
-    // Aggregate sales by CustomerName
-    const salesByCustomerName = await DetailedSales.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: '$CustomerName',
-          totalSales: { $sum: '$ItemsNetPrice' },
-          totalTransactions: { $sum: 1 },
-          totalQuantity: { $sum: '$Quantity' },
-          totalNetTotal: { $sum: '$NetTotal' },
-        },
-      },
-      {
-        $sort: { totalSales: -1 }, // Sort by total sales descending
-      },
-    ]);
-    
-    // Format the results
-    const statistics = salesByCustomerName.map((item) => ({
-      customerName: item._id,
-      totalSales: item.totalSales || 0,
-      totalTransactions: item.totalTransactions || 0,
-      totalQuantity: item.totalQuantity || 0,
-      totalNetTotal: item.totalNetTotal || 0,
-    }));
-    
-    // Calculate totals
-    const totalCustomers = statistics.length;
-    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
-    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
-    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
-    
-    // Calculate percentage for each customer
-    const statisticsWithPercentage = statistics.map((stat) => ({
-      ...stat,
-      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
-    }));
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        statistics: statisticsWithPercentage,
-        summary: {
-          totalCustomers,
-          totalSales: grandTotalSales,
-          totalTransactions: grandTotalTransactions,
-          totalQuantity: grandTotalQuantity,
-        },
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching sales statistics by customer name:'.red, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching sales statistics by customer name',
       error: error.message,
     });
   }
