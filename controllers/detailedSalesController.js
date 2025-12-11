@@ -1069,3 +1069,101 @@ export const getSalesByDay = async (req, res) => {
   }
 };
 
+// @desc    Get sales statistics by customer name
+// @route   GET /api/detailed-sales/stats/sales-by-customer-name
+// @access  Private - Admin only
+export const getSalesByCustomerName = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode, year, month } = req.query;
+    
+    // Only admin can access sales statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view sales statistics.',
+        reason: 'You must be an administrator to access sales statistics.',
+      });
+    }
+    
+    // Build query for branch codes and date range
+    let query = {};
+    
+    if (branchCode) {
+      query.BranchCode = parseInt(branchCode);
+    }
+    
+    // Add date filter if year and month are provided
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      
+      query.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+    
+    // Filter out documents without CustomerName
+    query.CustomerName = { $exists: true, $ne: null, $ne: '' };
+    
+    // Aggregate sales by CustomerName
+    const salesByCustomerName = await DetailedSales.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$CustomerName',
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      {
+        $sort: { totalSales: -1 }, // Sort by total sales descending
+      },
+    ]);
+    
+    // Format the results
+    const statistics = salesByCustomerName.map((item) => ({
+      customerName: item._id,
+      totalSales: item.totalSales || 0,
+      totalTransactions: item.totalTransactions || 0,
+      totalQuantity: item.totalQuantity || 0,
+      totalNetTotal: item.totalNetTotal || 0,
+    }));
+    
+    // Calculate totals
+    const totalCustomers = statistics.length;
+    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
+    
+    // Calculate percentage for each customer
+    const statisticsWithPercentage = statistics.map((stat) => ({
+      ...stat,
+      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
+    }));
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics: statisticsWithPercentage,
+        summary: {
+          totalCustomers,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sales statistics by customer name:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sales statistics by customer name',
+      error: error.message,
+    });
+  }
+};
+
