@@ -174,6 +174,9 @@ export const getAllCashDetailedSales = async (req, res) => {
       'TAMARA',
       'Near Care',
       'Saudi Tabby for Communications and',
+      'Namaa',
+      'Takaful Alarabia',
+      'Medical care',
     ];
 
     // Build query
@@ -248,6 +251,116 @@ export const getAllCashDetailedSales = async (req, res) => {
   }
 };
 
+// @desc    Get insurance detailed sales (filtered by specific customer names)
+// @route   GET /api/detailed-sales/insurance-detailed
+// @access  Private - Admin only
+export const getAllInsuranceDetailedSales = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode, year, month, limit, skip } = req.query;
+    
+    // Only admin can access detailed sales
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view detailed sales.',
+        reason: 'You must be an administrator to access detailed sales.',
+      });
+    }
+
+    // Allowed insurance customer names
+    const insuranceCustomerNames = [
+      'Al-Etihad Cooperative Insurance Com',
+      'Allied Cooperative Insurance Group',
+      'Al-Rajhi Company for Cooperative In',
+      'Amana Cooperative Insurance Company',
+      'Arabia Insurance Cooperative Compan',
+      'Arabian Shield Cooperative Insuranc',
+      'BUPA ARABIA',
+      'Buruj Cooperative Insurance Company',
+      'GOSI',
+      'Gulf Union Alahlia Cooperateive',
+      'Malaz',
+      'MEDGULF',
+      'Mena Medical Clinic',
+      'Nextcare/Al Jazira Takaful Company',
+      'Tawuniya',
+      'Total/Al Sagr Cooperative Insurance',
+      'United Cooperative Insurance Compan',
+    ];
+
+    // Build query
+    const query = {
+      CustomerName: { $in: insuranceCustomerNames },
+    };
+
+    if (branchCode) {
+      query.BranchCode = parseInt(branchCode);
+    }
+
+    // Date filter by year-month if provided
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      query.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const pageLimit = parseInt(limit) || 100;
+    const pageSkip = parseInt(skip) || 0;
+
+    const insuranceSales = await DetailedSales.find(query)
+      .sort({ InvoiceDate: -1, createdAt: -1 })
+      .limit(pageLimit)
+      .skip(pageSkip);
+
+    const total = await DetailedSales.countDocuments(query);
+
+    // Summary aggregation
+    const summaryAgg = await DetailedSales.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+    ]);
+
+    const summary = summaryAgg.length > 0 ? summaryAgg[0] : {
+      totalSales: 0,
+      totalTransactions: 0,
+      totalQuantity: 0,
+      totalNetTotal: 0,
+    };
+
+    res.status(200).json({
+      success: true,
+      count: insuranceSales.length,
+      total,
+      data: insuranceSales,
+      summary: {
+        totalSales: summary.totalSales || 0,
+        totalTransactions: summary.totalTransactions || 0,
+        totalQuantity: summary.totalQuantity || 0,
+        totalNetTotal: summary.totalNetTotal || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching insurance detailed sales:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching insurance detailed sales',
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Get cash detailed sales statistics grouped by CustomerName
 // @route   GET /api/detailed-sales/cash-detailed/statistics
 // @access  Private - Admin only
@@ -272,10 +385,117 @@ export const getCashDetailedSalesStatistics = async (req, res) => {
       'TAMARA',
       'Near Care',
       'Saudi Tabby for Communications and',
+      'Namaa',
+      'Takaful Alarabia',
+      'Medical care',
     ];
 
     const match = {
       CustomerName: { $in: cashCustomerNames },
+    };
+
+    if (branchCode) {
+      match.BranchCode = parseInt(branchCode);
+    }
+
+    if (year && month) {
+      // Use UTC dates to avoid timezone issues - create dates at midnight UTC
+      const startDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0));
+      // Get the last day of the month: use first day of next month minus 1ms
+      const lastDayOfMonth = new Date(Date.UTC(parseInt(year), parseInt(month), 0)).getUTCDate();
+      const endDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, lastDayOfMonth, 23, 59, 59, 999));
+      match.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const stats = await DetailedSales.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$CustomerName',
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      { $sort: { totalSales: -1 } },
+    ]);
+
+    const statistics = stats.map((item) => ({
+      customerName: item._id,
+      totalSales: item.totalSales || 0,
+      totalTransactions: item.totalTransactions || 0,
+      totalQuantity: item.totalQuantity || 0,
+      totalNetTotal: item.totalNetTotal || 0,
+    }));
+
+    const grandTotalSales = statistics.reduce((sum, s) => sum + s.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, s) => sum + s.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, s) => sum + s.totalQuantity, 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics,
+        summary: {
+          totalCustomers: statistics.length,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching cash detailed sales statistics:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching cash detailed sales statistics',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get insurance detailed sales statistics grouped by CustomerName
+// @route   GET /api/detailed-sales/insurance-detailed/statistics
+// @access  Private - Admin only
+export const getInsuranceDetailedSalesStatistics = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode, year, month } = req.query;
+
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view detailed sales.',
+        reason: 'You must be an administrator to access detailed sales.',
+      });
+    }
+
+    const insuranceCustomerNames = [
+      'Al-Etihad Cooperative Insurance Com',
+      'Allied Cooperative Insurance Group',
+      'Al-Rajhi Company for Cooperative In',
+      'Amana Cooperative Insurance Company',
+      'Arabia Insurance Cooperative Compan',
+      'Arabian Shield Cooperative Insuranc',
+      'BUPA ARABIA',
+      'Buruj Cooperative Insurance Company',
+      'GOSI',
+      'Gulf Union Alahlia Cooperateive',
+      'Malaz',
+      'MEDGULF',
+      'Mena Medical Clinic',
+      'Nextcare/Al Jazira Takaful Company',
+      'Tawuniya',
+      'Total/Al Sagr Cooperative Insurance',
+      'United Cooperative Insurance Compan',
+    ];
+
+    const match = {
+      CustomerName: { $in: insuranceCustomerNames },
     };
 
     if (branchCode) {
@@ -330,10 +550,111 @@ export const getCashDetailedSalesStatistics = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching cash detailed sales statistics:'.red, error);
+    console.error('Error fetching insurance detailed sales statistics:'.red, error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching cash detailed sales statistics',
+      message: 'Error fetching insurance detailed sales statistics',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get insurance detailed sales statistics grouped by SalesName
+// @route   GET /api/detailed-sales/insurance-detailed/sales-by-name
+// @access  Private - Admin only
+export const getInsuranceSalesBySalesName = async (req, res) => {
+  try {
+    const user = req.user;
+    const { branchCode, year, month } = req.query;
+
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view detailed sales.',
+        reason: 'You must be an administrator to access detailed sales.',
+      });
+    }
+
+    const insuranceCustomerNames = [
+      'Al-Etihad Cooperative Insurance Com',
+      'Allied Cooperative Insurance Group',
+      'Al-Rajhi Company for Cooperative In',
+      'Amana Cooperative Insurance Company',
+      'Arabia Insurance Cooperative Compan',
+      'Arabian Shield Cooperative Insuranc',
+      'BUPA ARABIA',
+      'Buruj Cooperative Insurance Company',
+      'GOSI',
+      'Gulf Union Alahlia Cooperateive',
+      'Malaz',
+      'MEDGULF',
+      'Mena Medical Clinic',
+      'Nextcare/Al Jazira Takaful Company',
+      'Tawuniya',
+      'Total/Al Sagr Cooperative Insurance',
+      'United Cooperative Insurance Compan',
+    ];
+
+    const match = {
+      CustomerName: { $in: insuranceCustomerNames },
+    };
+
+    if (branchCode) {
+      match.BranchCode = parseInt(branchCode);
+    }
+
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      match.InvoiceDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const stats = await DetailedSales.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$SalesName',
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+      { $sort: { totalSales: -1 } },
+    ]);
+
+    const statistics = stats.map((item) => ({
+      salesName: item._id,
+      totalSales: item.totalSales || 0,
+      totalTransactions: item.totalTransactions || 0,
+      totalQuantity: item.totalQuantity || 0,
+      totalNetTotal: item.totalNetTotal || 0,
+    }));
+
+    const grandTotalSales = statistics.reduce((sum, s) => sum + s.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, s) => sum + s.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, s) => sum + s.totalQuantity, 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics,
+        summary: {
+          totalSalesPersons: statistics.length,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching insurance sales by sales name:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching insurance sales by sales name',
       error: error.message,
     });
   }
@@ -685,6 +1006,105 @@ export const getPharmaciesByBranchCode = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching pharmacy statistics by branch code',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get sales statistics by individual pharmacies
+// @route   GET /api/detailed-sales/stats/sales-by-pharmacies
+// @access  Private - Admin only
+export const getSalesByPharmacies = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Only admin can access pharmacy statistics
+    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can view pharmacy statistics.',
+        reason: 'You must be an administrator to access pharmacy statistics.',
+      });
+    }
+    
+    // Get all pharmacies
+    const pharmacies = await Pharmacy.find({}).sort({ branchCode: 1 });
+    
+    // Aggregate sales by BranchCode from DetailedSales
+    const salesByBranch = await DetailedSales.aggregate([
+      {
+        $group: {
+          _id: '$BranchCode',
+          totalSales: { $sum: '$ItemsNetPrice' },
+          totalTransactions: { $sum: 1 },
+          totalQuantity: { $sum: '$Quantity' },
+          totalNetTotal: { $sum: '$NetTotal' },
+        },
+      },
+    ]);
+    
+    // Create a map for quick lookup
+    const salesMap = {};
+    salesByBranch.forEach((item) => {
+      salesMap[item._id] = {
+        totalSales: item.totalSales || 0,
+        totalTransactions: item.totalTransactions || 0,
+        totalQuantity: item.totalQuantity || 0,
+        totalNetTotal: item.totalNetTotal || 0,
+      };
+    });
+    
+    // Combine pharmacy data with sales data
+    const statistics = pharmacies.map((pharmacy) => {
+      const salesData = salesMap[pharmacy.branchCode] || {
+        totalSales: 0,
+        totalTransactions: 0,
+        totalQuantity: 0,
+        totalNetTotal: 0,
+      };
+      
+      return {
+        pharmacyId: pharmacy._id,
+        pharmacyName: pharmacy.name,
+        branchCode: pharmacy.branchCode,
+        totalSales: salesData.totalSales,
+        totalTransactions: salesData.totalTransactions,
+        totalQuantity: salesData.totalQuantity,
+        totalNetTotal: salesData.totalNetTotal,
+      };
+    });
+    
+    // Calculate totals
+    const grandTotalSales = statistics.reduce((sum, stat) => sum + stat.totalSales, 0);
+    const grandTotalTransactions = statistics.reduce((sum, stat) => sum + stat.totalTransactions, 0);
+    const grandTotalQuantity = statistics.reduce((sum, stat) => sum + stat.totalQuantity, 0);
+    
+    // Calculate percentage for each pharmacy
+    const statisticsWithPercentage = statistics.map((stat) => ({
+      ...stat,
+      percentage: grandTotalSales > 0 ? (stat.totalSales / grandTotalSales) * 100 : 0,
+    }));
+    
+    // Sort by total sales descending
+    statisticsWithPercentage.sort((a, b) => b.totalSales - a.totalSales);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        statistics: statisticsWithPercentage,
+        summary: {
+          totalPharmacies: pharmacies.length,
+          totalSales: grandTotalSales,
+          totalTransactions: grandTotalTransactions,
+          totalQuantity: grandTotalQuantity,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sales by pharmacies:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sales by pharmacies',
       error: error.message,
     });
   }

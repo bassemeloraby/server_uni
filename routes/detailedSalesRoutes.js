@@ -8,12 +8,16 @@ import {
   deleteDetailedSale,
   getSalesStatistics,
   getPharmaciesByBranchCode,
+  getSalesByPharmacies,
   getSalesBySalesName,
   getSalesByInvoiceType,
   getSalesByMonth,
   getSalesByDay,
   getAllCashDetailedSales,
   getCashDetailedSalesStatistics,
+  getAllInsuranceDetailedSales,
+  getInsuranceDetailedSalesStatistics,
+  getInsuranceSalesBySalesName,
 } from '../controllers/detailedSalesController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -28,6 +32,9 @@ router.route('/stats/summary')
 
 router.route('/stats/pharmacies-by-branch')
   .get(getPharmaciesByBranchCode);
+
+router.route('/stats/sales-by-pharmacies')
+  .get(getSalesByPharmacies);
 
 router.route('/stats/sales-by-name')
   .get(getSalesBySalesName);
@@ -46,6 +53,15 @@ router.route('/cash-detailed')
 
 router.route('/cash-detailed/statistics')
   .get(getCashDetailedSalesStatistics);
+
+router.route('/insurance-detailed')
+  .get(getAllInsuranceDetailedSales);
+
+router.route('/insurance-detailed/statistics')
+  .get(getInsuranceDetailedSalesStatistics);
+
+router.route('/insurance-detailed/sales-by-name')
+  .get(getInsuranceSalesBySalesName);
 
 // Bulk create route (must come before generic routes)
 router.route('/bulk')

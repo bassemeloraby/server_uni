@@ -2,7 +2,6 @@ import User from '../models/User.js';
 import colors from 'colors';
 
 
-
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
