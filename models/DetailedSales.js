@@ -6,13 +6,13 @@ const detailedSalesSchema = new mongoose.Schema({
     required: [true, 'Branch code is required'],
   },
   InvoiceNumber: {
-    type: String,
+    type: Number,
     required: [true, 'Invoice number is required'],
-    trim: true,
   },
   InvoiceDate: {
-    type: Date,
+    type: String,
     required: [true, 'Invoice date is required'],
+    trim: true,
   },
   InvoiceTime: {
     type: String,
@@ -26,13 +26,13 @@ const detailedSalesSchema = new mongoose.Schema({
     enum: ['Normal', 'Return', 'Exchange', 'Other'],
     default: 'Normal',
   },
+  CustomerName: {
+    type: String,
+    trim: true,
+  },
   SalesName: {
     type: String,
     required: [true, 'Sales name is required'],
-    trim: true,
-  },
-  CustomerName: {
-    type: String,
     trim: true,
   },
   MaterialNumber: {
@@ -95,6 +95,8 @@ detailedSalesSchema.index({ InvoiceDate: -1 });
 detailedSalesSchema.index({ MaterialNumber: 1 });
 detailedSalesSchema.index({ SalesName: 'text', Name: 'text' });
 detailedSalesSchema.index({ BranchCode: 1, InvoiceDate: -1 });
+detailedSalesSchema.index({ CustomerName: 1 });
+detailedSalesSchema.index({ InvoiceType: 1 });
 
 const DetailedSales = mongoose.model('DetailedSales', detailedSalesSchema);
 
