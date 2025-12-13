@@ -1,6 +1,18 @@
 import DetailedSales from '../models/DetailedSales.js';
 import colors from 'colors';
 
+// Helper function to parse M/D/YYYY date string to Date object
+const parseDateString = (dateStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return null;
+  const month = parseInt(parts[0], 10) - 1; // Month is 0-indexed
+  const day = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+  return new Date(year, month, day);
+};
+
 // @desc    Get all detailed sales
 // @route   GET /api/detailed-sales
 // @access  Private - Admin only
@@ -10,7 +22,9 @@ export const getDetailedSales = async (req, res) => {
     const { 
       branchCode, 
       invoiceNumber, 
-      invoiceDate, 
+      invoiceDate,
+      startDate,
+      endDate,
       invoiceType, 
       salesName, 
       materialNumber,
@@ -40,7 +54,74 @@ export const getDetailedSales = async (req, res) => {
       query.InvoiceNumber = parseInt(invoiceNumber);
     }
     
-    if (invoiceDate) {
+    // Handle date range filtering
+    const dateRangeConditions = [];
+    if (startDate || endDate) {
+      if (startDate) {
+        const start = parseDateString(startDate);
+        if (start) {
+          dateRangeConditions.push({
+            $expr: {
+              $gte: [
+                {
+                  $dateFromString: {
+                    dateString: {
+                      $concat: [
+                        { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 2] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }
+                      ]
+                    },
+                    onError: null
+                  }
+                },
+                start
+              ]
+            }
+          });
+        }
+      }
+      if (endDate) {
+        const end = parseDateString(endDate);
+        if (end) {
+          end.setHours(23, 59, 59, 999);
+          dateRangeConditions.push({
+            $expr: {
+              $lte: [
+                {
+                  $dateFromString: {
+                    dateString: {
+                      $concat: [
+                        { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 2] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }
+                      ]
+                    },
+                    onError: null
+                  }
+                },
+                end
+              ]
+            }
+          });
+        }
+      }
+    }
+    
+    // Legacy support for invoiceDate (single date)
+    if (invoiceDate && !startDate && !endDate) {
       query.InvoiceDate = new RegExp(invoiceDate, 'i');
     }
     
@@ -62,6 +143,18 @@ export const getDetailedSales = async (req, res) => {
     
     if (search) {
       query.$text = { $search: search };
+    }
+    
+    // Combine date range conditions with other filters
+    if (dateRangeConditions.length > 0) {
+      if (Object.keys(query).length > 0) {
+        query.$and = [
+          ...(query.$and || []),
+          ...dateRangeConditions
+        ];
+      } else {
+        Object.assign(query, { $and: dateRangeConditions });
+      }
     }
     
     const pageLimit = parseInt(limit) || 100;
@@ -330,7 +423,9 @@ export const getInsuranceSales = async (req, res) => {
     const { 
       branchCode, 
       invoiceNumber, 
-      invoiceDate, 
+      invoiceDate,
+      startDate,
+      endDate,
       invoiceType, 
       salesName, 
       materialNumber,
@@ -388,7 +483,74 @@ export const getInsuranceSales = async (req, res) => {
       otherFilters.InvoiceNumber = parseInt(invoiceNumber);
     }
     
-    if (invoiceDate) {
+    // Handle date range filtering
+    const dateRangeConditions = [];
+    if (startDate || endDate) {
+      if (startDate) {
+        const start = parseDateString(startDate);
+        if (start) {
+          dateRangeConditions.push({
+            $expr: {
+              $gte: [
+                {
+                  $dateFromString: {
+                    dateString: {
+                      $concat: [
+                        { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 2] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }
+                      ]
+                    },
+                    onError: null
+                  }
+                },
+                start
+              ]
+            }
+          });
+        }
+      }
+      if (endDate) {
+        const end = parseDateString(endDate);
+        if (end) {
+          end.setHours(23, 59, 59, 999);
+          dateRangeConditions.push({
+            $expr: {
+              $lte: [
+                {
+                  $dateFromString: {
+                    dateString: {
+                      $concat: [
+                        { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 2] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 0] }] },
+                        '-',
+                        { $cond: [{ $lt: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }, to: 'int', onError: 0 } }, 10] }, 
+                          { $concat: ['0', { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }, 
+                          { $arrayElemAt: [{ $split: ['$InvoiceDate', '/'] }, 1] }] }
+                      ]
+                    },
+                    onError: null
+                  }
+                },
+                end
+              ]
+            }
+          });
+        }
+      }
+    }
+    
+    // Legacy support for invoiceDate (single date)
+    if (invoiceDate && !startDate && !endDate) {
       otherFilters.InvoiceDate = new RegExp(invoiceDate, 'i');
     }
     
@@ -406,6 +568,18 @@ export const getInsuranceSales = async (req, res) => {
     
     if (search) {
       otherFilters.$text = { $search: search };
+    }
+    
+    // Combine date range conditions with other filters
+    if (dateRangeConditions.length > 0) {
+      if (Object.keys(otherFilters).length > 0) {
+        otherFilters.$and = [
+          ...(otherFilters.$and || []),
+          ...dateRangeConditions
+        ];
+      } else {
+        Object.assign(otherFilters, { $and: dateRangeConditions });
+      }
     }
     
     // Combine filters using $and
