@@ -434,7 +434,7 @@ export const getCashHeaderSalesByMonth = async (req, res) => {
           '_id.Month': 1
         }
       },
-      // Project to reshape the output
+      // Project to reshape the output and calculate Total for each month
       {
         $project: {
           _id: 0,
@@ -448,10 +448,48 @@ export const getCashHeaderSalesByMonth = async (req, res) => {
           ReturnCashCustomer: 1,
           ReturnCreditCustomer: 1,
           ReturnOnline: 1,
-          totalCount: 1
+          totalCount: 1,
+          Total: {
+            $add: [
+              '$CashCustomer',
+              '$CreditCustomer',
+              '$Normal',
+              '$Online',
+              '$Return',
+              '$ReturnCashCustomer',
+              '$ReturnCreditCustomer',
+              '$ReturnOnline'
+            ]
+          }
         }
       }
     ]);
+    
+    // Calculate grand totals for all months
+    const grandTotals = salesByMonth.reduce((acc, item) => {
+      acc.CashCustomer += item.CashCustomer || 0;
+      acc.CreditCustomer += item.CreditCustomer || 0;
+      acc.Normal += item.Normal || 0;
+      acc.Online += item.Online || 0;
+      acc.Return += item.Return || 0;
+      acc.ReturnCashCustomer += item.ReturnCashCustomer || 0;
+      acc.ReturnCreditCustomer += item.ReturnCreditCustomer || 0;
+      acc.ReturnOnline += item.ReturnOnline || 0;
+      acc.Total += item.Total || 0;
+      acc.totalCount += item.totalCount || 0;
+      return acc;
+    }, {
+      CashCustomer: 0,
+      CreditCustomer: 0,
+      Normal: 0,
+      Online: 0,
+      Return: 0,
+      ReturnCashCustomer: 0,
+      ReturnCreditCustomer: 0,
+      ReturnOnline: 0,
+      Total: 0,
+      totalCount: 0
+    });
     
     // Get all available years for the filter
     const availableYears = await HeaderSales.distinct('Year');
@@ -460,6 +498,7 @@ export const getCashHeaderSalesByMonth = async (req, res) => {
     res.status(200).json({
       success: true,
       data: salesByMonth,
+      grandTotals: grandTotals,
       availableYears: sortedYears,
       selectedYear: Year ? parseInt(Year) : null,
     });
