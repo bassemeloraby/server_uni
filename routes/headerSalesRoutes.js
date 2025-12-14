@@ -8,6 +8,7 @@ import {
   bulkCreateHeaderSales,
   getHeaderSalesByMonth,
   getCashHeaderSalesByMonth,
+  getInsuranceHeaderSalesByMonth,
 } from '../controllers/headerSalesController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -29,6 +30,9 @@ router.route('/by-month')
 
 router.route('/cash-by-month')
   .get(getCashHeaderSalesByMonth);
+
+router.route('/insurance-by-month')
+  .get(getInsuranceHeaderSalesByMonth);
 
 router.route('/:id')
   .get(getHeaderSale)

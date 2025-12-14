@@ -512,3 +512,157 @@ export const getCashHeaderSalesByMonth = async (req, res) => {
   }
 };
 
+// @desc    Get insurance header sales grouped by month with invoice type totals
+// @route   GET /api/header-sales/insurance-by-month
+// @access  Private
+export const getInsuranceHeaderSalesByMonth = async (req, res) => {
+  try {
+    const { Year } = req.query;
+    
+    // Build match query - filter for insurance-related invoice types
+    const matchQuery = {
+      InvoiceType: { $regex: /insurance/i } // Case-insensitive match for insurance
+    };
+    if (Year) {
+      matchQuery.Year = parseInt(Year);
+    }
+    
+    // First, get all distinct insurance invoice types
+    const insuranceInvoiceTypes = await HeaderSales.distinct('InvoiceType', {
+      InvoiceType: { $regex: /insurance/i }
+    });
+    
+    console.log('Insurance invoice types found:'.green, insuranceInvoiceTypes);
+    
+    // If no insurance invoice types found, return empty result
+    if (!insuranceInvoiceTypes || insuranceInvoiceTypes.length === 0) {
+      const availableYears = await HeaderSales.distinct('Year', {
+        InvoiceType: { $regex: /insurance/i }
+      });
+      return res.status(200).json({
+        success: true,
+        data: [],
+        grandTotals: {
+          Total: 0,
+          totalCount: 0
+        },
+        availableYears: availableYears.sort((a, b) => b - a),
+        selectedYear: Year ? parseInt(Year) : null,
+        insuranceInvoiceTypes: [],
+      });
+    }
+    
+    // Build dynamic group stage with all insurance invoice types
+    const groupStage = {
+      _id: {
+        Year: '$Year',
+        Month: '$Month'
+      },
+      totalCount: { $sum: 1 }
+    };
+    
+    // Add a field for each insurance invoice type
+    insuranceInvoiceTypes.forEach(invoiceType => {
+      groupStage[invoiceType] = {
+        $sum: {
+          $cond: [{ $eq: ['$InvoiceType', invoiceType] }, '$TotalAmountAfterDiscount', 0]
+        }
+      };
+    });
+    
+    // Aggregation pipeline to group by Year and Month, and calculate totals by invoice type
+    const salesByMonth = await HeaderSales.aggregate([
+      // Match documents based on year filter and insurance invoice types
+      { $match: matchQuery },
+      // Group by Year and Month, calculate totals for each insurance invoice type
+      {
+        $group: groupStage
+      },
+      // Sort by Year and Month
+      {
+        $sort: {
+          '_id.Year': 1,
+          '_id.Month': 1
+        }
+      },
+      // Project to reshape the output and calculate Total for each month
+      {
+        $project: (() => {
+          const projectStage = {
+            _id: 0,
+            Year: '$_id.Year',
+            Month: '$_id.Month',
+            totalCount: 1
+          };
+          
+          // Dynamically include all insurance invoice types
+          insuranceInvoiceTypes.forEach(type => {
+            projectStage[type] = 1;
+          });
+          
+          // Calculate total by summing all insurance invoice types
+          if (insuranceInvoiceTypes.length > 0) {
+            const addArray = insuranceInvoiceTypes.map(type => {
+              // Escape special characters in field names if needed
+              return `$${type}`;
+            });
+            projectStage.Total = { $add: addArray };
+          } else {
+            projectStage.Total = 0;
+          }
+          
+          return projectStage;
+        })()
+      }
+    ]);
+    
+    // Calculate grand totals for all months
+    const grandTotals = salesByMonth.reduce((acc, item) => {
+      insuranceInvoiceTypes.forEach(type => {
+        acc[type] = (acc[type] || 0) + (item[type] || 0);
+      });
+      acc.Total = (acc.Total || 0) + (item.Total || 0);
+      acc.totalCount = (acc.totalCount || 0) + (item.totalCount || 0);
+      return acc;
+    }, {
+      Total: 0,
+      totalCount: 0
+    });
+    
+    // Initialize all invoice types in grandTotals
+    insuranceInvoiceTypes.forEach(type => {
+      if (!grandTotals[type]) {
+        grandTotals[type] = 0;
+      }
+    });
+    
+    // Get all available years for the filter
+    const availableYears = await HeaderSales.distinct('Year', {
+      InvoiceType: { $regex: /insurance/i }
+    });
+    const sortedYears = availableYears.sort((a, b) => b - a); // Sort descending
+    
+    console.log('Insurance sales by month result:'.green, {
+      count: salesByMonth.length,
+      years: sortedYears,
+      invoiceTypes: insuranceInvoiceTypes
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: salesByMonth,
+      grandTotals: grandTotals,
+      availableYears: sortedYears,
+      selectedYear: Year ? parseInt(Year) : null,
+      insuranceInvoiceTypes: insuranceInvoiceTypes,
+    });
+  } catch (error) {
+    console.error('Error fetching insurance header sales by month:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching insurance header sales by month',
+      error: error.message,
+    });
+  }
+};
+
