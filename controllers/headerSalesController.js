@@ -293,3 +293,183 @@ export const bulkCreateHeaderSales = async (req, res) => {
   }
 };
 
+// @desc    Get header sales grouped by month
+// @route   GET /api/header-sales/by-month
+// @access  Private
+export const getHeaderSalesByMonth = async (req, res) => {
+  try {
+    const { Year } = req.query;
+    
+    // Build match query
+    const matchQuery = {};
+    if (Year) {
+      matchQuery.Year = parseInt(Year);
+    }
+    
+    // Aggregation pipeline to group by Year and Month, and sum TotalAmountAfterDiscount
+    const salesByMonth = await HeaderSales.aggregate([
+      // Match documents based on year filter
+      { $match: matchQuery },
+      // Group by Year and Month, sum TotalAmountAfterDiscount
+      {
+        $group: {
+          _id: {
+            Year: '$Year',
+            Month: '$Month'
+          },
+          TotalAmountAfterDiscount: { $sum: '$TotalAmountAfterDiscount' },
+          count: { $sum: 1 }
+        }
+      },
+      // Sort by Year and Month
+      {
+        $sort: {
+          '_id.Year': 1,
+          '_id.Month': 1
+        }
+      },
+      // Project to reshape the output
+      {
+        $project: {
+          _id: 0,
+          Year: '$_id.Year',
+          Month: '$_id.Month',
+          TotalAmountAfterDiscount: 1,
+          count: 1
+        }
+      }
+    ]);
+    
+    // Get all available years for the filter
+    const availableYears = await HeaderSales.distinct('Year');
+    const sortedYears = availableYears.sort((a, b) => b - a); // Sort descending
+    
+    res.status(200).json({
+      success: true,
+      data: salesByMonth,
+      availableYears: sortedYears,
+      selectedYear: Year ? parseInt(Year) : null,
+    });
+  } catch (error) {
+    console.error('Error fetching header sales by month:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching header sales by month',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get cash header sales grouped by month with invoice type totals
+// @route   GET /api/header-sales/cash-by-month
+// @access  Private
+export const getCashHeaderSalesByMonth = async (req, res) => {
+  try {
+    const { Year } = req.query;
+    
+    // Build match query
+    const matchQuery = {};
+    if (Year) {
+      matchQuery.Year = parseInt(Year);
+    }
+    
+    // Aggregation pipeline to group by Year and Month, and calculate totals by invoice type
+    const salesByMonth = await HeaderSales.aggregate([
+      // Match documents based on year filter
+      { $match: matchQuery },
+      // Group by Year and Month, calculate totals for each invoice type
+      {
+        $group: {
+          _id: {
+            Year: '$Year',
+            Month: '$Month'
+          },
+          CashCustomer: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'CashCustomer'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          CreditCustomer: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'CreditCustomer'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          Normal: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'Normal'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          Online: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'Online'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          Return: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'Return'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          ReturnCashCustomer: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'ReturnCashCustomer'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          ReturnCreditCustomer: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'ReturnCreditCustomer'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          ReturnOnline: {
+            $sum: {
+              $cond: [{ $eq: ['$InvoiceType', 'ReturnOnline'] }, '$TotalAmountAfterDiscount', 0]
+            }
+          },
+          totalCount: { $sum: 1 }
+        }
+      },
+      // Sort by Year and Month
+      {
+        $sort: {
+          '_id.Year': 1,
+          '_id.Month': 1
+        }
+      },
+      // Project to reshape the output
+      {
+        $project: {
+          _id: 0,
+          Year: '$_id.Year',
+          Month: '$_id.Month',
+          CashCustomer: 1,
+          CreditCustomer: 1,
+          Normal: 1,
+          Online: 1,
+          Return: 1,
+          ReturnCashCustomer: 1,
+          ReturnCreditCustomer: 1,
+          ReturnOnline: 1,
+          totalCount: 1
+        }
+      }
+    ]);
+    
+    // Get all available years for the filter
+    const availableYears = await HeaderSales.distinct('Year');
+    const sortedYears = availableYears.sort((a, b) => b - a); // Sort descending
+    
+    res.status(200).json({
+      success: true,
+      data: salesByMonth,
+      availableYears: sortedYears,
+      selectedYear: Year ? parseInt(Year) : null,
+    });
+  } catch (error) {
+    console.error('Error fetching cash header sales by month:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching cash header sales by month',
+      error: error.message,
+    });
+  }
+};
+
