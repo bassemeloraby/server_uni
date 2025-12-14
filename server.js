@@ -6,7 +6,6 @@ import connectDB from './config/db.js';
 import pharmacyRoutes from './routes/pharmacyRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
-import detailedSalesRoutes from './routes/detailedSalesRoutes.js';
 import incentiveItemRoutes from './routes/incentiveItemRoutes.js';
 import contestRoutes from './routes/contestRoutes.js';
 
@@ -32,7 +31,6 @@ app.get("/", (req, res) => {
 app.use("/api/pharmacies", pharmacyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/detailed-sales", detailedSalesRoutes);
 app.use("/api/incentive-items", incentiveItemRoutes);
 app.use("/api/contests", contestRoutes);
 
