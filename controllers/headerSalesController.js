@@ -782,3 +782,109 @@ export const getWasfatyHeaderSalesByMonth = async (req, res) => {
   }
 };
 
+// @desc    Get Online header sales (Online + ReturnOnline) grouped by month
+// @route   GET /api/header-sales/online-by-month
+// @access  Private
+export const getOnlineHeaderSalesByMonth = async (req, res) => {
+  try {
+    const { Year } = req.query;
+
+    // Build match query - filter for Online-related invoice types
+    const matchQuery = {
+      InvoiceType: { $in: ['Online', 'ReturnOnline'] },
+    };
+    if (Year) {
+      matchQuery.Year = parseInt(Year);
+    }
+
+    // Aggregation pipeline to group by Year and Month, and calculate totals for Online and ReturnOnline
+    const salesByMonth = await HeaderSales.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: {
+            Year: '$Year',
+            Month: '$Month',
+          },
+          Online: {
+            $sum: {
+              $cond: [
+                { $eq: ['$InvoiceType', 'Online'] },
+                '$TotalAmountAfterDiscount',
+                0,
+              ],
+            },
+          },
+          ReturnOnline: {
+            $sum: {
+              $cond: [
+                { $eq: ['$InvoiceType', 'ReturnOnline'] },
+                '$TotalAmountAfterDiscount',
+                0,
+              ],
+            },
+          },
+          totalCount: { $sum: 1 },
+        },
+      },
+      {
+        $sort: {
+          '_id.Year': 1,
+          '_id.Month': 1,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          Year: '$_id.Year',
+          Month: '$_id.Month',
+          Online: 1,
+          ReturnOnline: 1,
+          totalCount: 1,
+          // Online total = Online + ReturnOnline
+          Total: {
+            $add: ['$Online', '$ReturnOnline'],
+          },
+        },
+      },
+    ]);
+
+    // Calculate grand totals for all months
+    const grandTotals = salesByMonth.reduce(
+      (acc, item) => {
+        acc.Online += item.Online || 0;
+        acc.ReturnOnline += item.ReturnOnline || 0;
+        acc.Total += item.Total || 0;
+        acc.totalCount += item.totalCount || 0;
+        return acc;
+      },
+      {
+        Online: 0,
+        ReturnOnline: 0,
+        Total: 0,
+        totalCount: 0,
+      }
+    );
+
+    // Get all available years for the filter (only where Online/ReturnOnline exists)
+    const availableYears = await HeaderSales.distinct('Year', {
+      InvoiceType: { $in: ['Online', 'ReturnOnline'] },
+    });
+    const sortedYears = availableYears.sort((a, b) => b - a);
+
+    res.status(200).json({
+      success: true,
+      data: salesByMonth,
+      grandTotals,
+      availableYears: sortedYears,
+      selectedYear: Year ? parseInt(Year) : null,
+    });
+  } catch (error) {
+    console.error('Error fetching Online header sales by month:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching Online header sales by month',
+      error: error.message,
+    });
+  }
+};
