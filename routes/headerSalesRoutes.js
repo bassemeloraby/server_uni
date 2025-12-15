@@ -9,6 +9,7 @@ import {
   getHeaderSalesByMonth,
   getCashHeaderSalesByMonth,
   getInsuranceHeaderSalesByMonth,
+  getWasfatyHeaderSalesByMonth,
 } from '../controllers/headerSalesController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -33,6 +34,9 @@ router.route('/cash-by-month')
 
 router.route('/insurance-by-month')
   .get(getInsuranceHeaderSalesByMonth);
+
+router.route('/wasfaty-by-month')
+  .get(getWasfatyHeaderSalesByMonth);
 
 router.route('/:id')
   .get(getHeaderSale)

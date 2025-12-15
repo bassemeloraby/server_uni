@@ -666,3 +666,119 @@ export const getInsuranceHeaderSalesByMonth = async (req, res) => {
   }
 };
 
+// @desc    Get Wasfaty header sales grouped by month with Wasfaty and ReturnWasfaty totals
+// @route   GET /api/header-sales/wasfaty-by-month
+// @access  Private
+export const getWasfatyHeaderSalesByMonth = async (req, res) => {
+  try {
+    const { Year } = req.query;
+
+    // Build match query - filter for Wasfaty-related invoice types
+    const matchQuery = {
+      InvoiceType: { $regex: /wasf/i },
+    };
+    if (Year) {
+      matchQuery.Year = parseInt(Year);
+    }
+
+    // Aggregation pipeline to group by Year and Month, and calculate totals for Wasfaty and ReturnWasfaty
+    const salesByMonth = await HeaderSales.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: {
+            Year: '$Year',
+            Month: '$Month',
+          },
+          Wasfaty: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $regexMatch: { input: '$InvoiceType', regex: /wasf/i } },
+                    { $not: [{ $regexMatch: { input: '$InvoiceType', regex: /return/i } }] },
+                  ],
+                },
+                '$TotalAmountAfterDiscount',
+                0,
+              ],
+            },
+          },
+          ReturnWasfaty: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $regexMatch: { input: '$InvoiceType', regex: /wasf/i } },
+                    { $regexMatch: { input: '$InvoiceType', regex: /return/i } },
+                  ],
+                },
+                '$TotalAmountAfterDiscount',
+                0,
+              ],
+            },
+          },
+          totalCount: { $sum: 1 },
+        },
+      },
+      {
+        $sort: {
+          '_id.Year': 1,
+          '_id.Month': 1,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          Year: '$_id.Year',
+          Month: '$_id.Month',
+          Wasfaty: 1,
+          ReturnWasfaty: 1,
+          totalCount: 1,
+          Total: {
+            $add: ['$Wasfaty', '$ReturnWasfaty'],
+          },
+        },
+      },
+    ]);
+
+    // Calculate grand totals for all months
+    const grandTotals = salesByMonth.reduce(
+      (acc, item) => {
+        acc.Wasfaty += item.Wasfaty || 0;
+        acc.ReturnWasfaty += item.ReturnWasfaty || 0;
+        acc.Total += item.Total || 0;
+        acc.totalCount += item.totalCount || 0;
+        return acc;
+      },
+      {
+        Wasfaty: 0,
+        ReturnWasfaty: 0,
+        Total: 0,
+        totalCount: 0,
+      }
+    );
+
+    // Get all available years for the filter (only where Wasfaty/ReturnWasfaty exists)
+    const availableYears = await HeaderSales.distinct('Year', {
+      InvoiceType: { $regex: /wasf/i },
+    });
+    const sortedYears = availableYears.sort((a, b) => b - a);
+
+    res.status(200).json({
+      success: true,
+      data: salesByMonth,
+      grandTotals,
+      availableYears: sortedYears,
+      selectedYear: Year ? parseInt(Year) : null,
+    });
+  } catch (error) {
+    console.error('Error fetching Wasfaty header sales by month:'.red, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching Wasfaty header sales by month',
+      error: error.message,
+    });
+  }
+};
+
