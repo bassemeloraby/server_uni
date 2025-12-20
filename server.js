@@ -7,6 +7,7 @@ import pharmacyRoutes from './routes/pharmacyRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import incentiveItemRoutes from './routes/incentiveItemRoutes.js';
+import insuranceItemRoutes from './routes/insuranceItemRoutes.js';
 import contestRoutes from './routes/contestRoutes.js';
 import headerSalesRoutes from './routes/headerSalesRoutes.js';
 
@@ -33,6 +34,7 @@ app.use("/api/pharmacies", pharmacyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/incentive-items", incentiveItemRoutes);
+app.use("/api/insurance-items", insuranceItemRoutes);
 app.use("/api/contests", contestRoutes);
 app.use("/api/header-sales", headerSalesRoutes);
 
