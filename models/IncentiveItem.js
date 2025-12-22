@@ -10,14 +10,6 @@ const incentiveItemSchema = new mongoose.Schema({
     required: [true, 'SAP Code is required'],
     unique: true,
   },
-  form: {
-    type: String,
-    trim: true,
-  },
-  form_category: {
-    type: String,
-    trim: true,
-  },
   Description: {
     type: String,
     trim: true,
@@ -30,7 +22,7 @@ const incentiveItemSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
-  'Sub category': {
+  Sub_category: {
     type: String,
     trim: true,
   },
@@ -44,7 +36,7 @@ const incentiveItemSchema = new mongoose.Schema({
     min: [0, 'Incentive percentage must be a positive number'],
     max: [1, 'Incentive percentage cannot exceed 1'],
   },
-  'incentive value': {
+  incentive_value: {
     type: Number,
     min: [0, 'Incentive value must be a positive number'],
   },
