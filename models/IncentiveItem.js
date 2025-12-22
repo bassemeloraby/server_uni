@@ -48,7 +48,11 @@ const incentiveItemSchema = new mongoose.Schema({
 // Note: SAP_Code index is automatically created by unique: true
 incentiveItemSchema.index({ Description: 'text' });
 incentiveItemSchema.index({ Category: 1 });
-incentiveItemSchema.index({ 'Sub category': 1 });
+incentiveItemSchema.index({ Sub_category: 1 });
+// Indexes for sorting performance
+incentiveItemSchema.index({ Price: 1 });
+incentiveItemSchema.index({ incentive_value: 1 });
+incentiveItemSchema.index({ createdAt: -1 });
 
 const IncentiveItem = mongoose.model('IncentiveItem', incentiveItemSchema);
 

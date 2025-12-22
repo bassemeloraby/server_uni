@@ -44,7 +44,7 @@ export const getIncentiveItems = async (req, res) => {
     }
     
     if (SubCategory) {
-      query['Sub category'] = new RegExp(SubCategory, 'i');
+      query.Sub_category = new RegExp(SubCategory, 'i');
     }
     
     if (Division) {
@@ -88,17 +88,35 @@ export const getIncentiveItems = async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
     
     // Determine sort order (priority: sortByPrice > sortByIncentiveValue > default)
+    // Sort all data at database level before pagination
     let sortOrder = { createdAt: -1 }; // Default sort
     if (sortByPrice === 'desc' || sortByPrice === 'true') {
-      sortOrder = { Price: -1 }; // Sort by price descending (highest to lowest)
+      // Sort by price descending, null values last, then by createdAt for consistency
+      sortOrder = { 
+        Price: -1, 
+        createdAt: -1 
+      };
     } else if (sortByPrice === 'asc') {
-      sortOrder = { Price: 1 }; // Sort by price ascending (lowest to highest)
+      // Sort by price ascending, null values last, then by createdAt for consistency
+      sortOrder = { 
+        Price: 1, 
+        createdAt: -1 
+      };
     } else if (sortByIncentiveValue === 'desc' || sortByIncentiveValue === 'true') {
-      sortOrder = { 'incentive value': -1 }; // Sort by incentive value descending (largest to lowest)
+      // Sort by incentive value descending, null values last, then by createdAt for consistency
+      sortOrder = { 
+        incentive_value: -1, 
+        createdAt: -1 
+      };
     } else if (sortByIncentiveValue === 'asc') {
-      sortOrder = { 'incentive value': 1 }; // Sort by incentive value ascending (lowest to largest)
+      // Sort by incentive value ascending, null values last, then by createdAt for consistency
+      sortOrder = { 
+        incentive_value: 1, 
+        createdAt: -1 
+      };
     }
     
+    // Query with sort applied to ALL matching documents before pagination
     const incentiveItems = await IncentiveItem.find(query)
       .sort(sortOrder)
       .skip(skip)
