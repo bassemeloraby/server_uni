@@ -10,6 +10,7 @@ import incentiveItemRoutes from './routes/incentiveItemRoutes.js';
 import insuranceItemRoutes from './routes/insuranceItemRoutes.js';
 import contestRoutes from './routes/contestRoutes.js';
 import headerSalesRoutes from './routes/headerSalesRoutes.js';
+import visitRoutes from './routes/visitRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +38,7 @@ app.use("/api/incentive-items", incentiveItemRoutes);
 app.use("/api/insurance-items", insuranceItemRoutes);
 app.use("/api/contests", contestRoutes);
 app.use("/api/header-sales", headerSalesRoutes);
+app.use("/api/visits", visitRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
