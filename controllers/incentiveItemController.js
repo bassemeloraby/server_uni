@@ -3,17 +3,30 @@ import colors from 'colors';
 
 // @desc    Get all incentive items
 // @route   GET /api/incentive-items
-// @access  Private - Admin only
+// @access  Private - Admin or users with /incentive-items in allowedPages
 export const getIncentiveItems = async (req, res) => {
   try {
     const user = req.user;
     
-    // Only admin can access incentive items
-    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to incentive-items page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/incentive-items');
+    
+    if (!isAdmin && !hasPageAccess) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Only administrators can view incentive items.',
-        reason: 'You must be an administrator to access incentive items.',
+        message: 'Access denied. You do not have permission to view incentive items.',
+        reason: 'You must be an administrator or have been granted access to incentive items.',
       });
     }
     

@@ -3,9 +3,33 @@ import colors from 'colors';
 
 // @desc    Get all header sales
 // @route   GET /api/header-sales
-// @access  Private
+// @access  Private - Admin or users with /header-sales in allowedPages
 export const getHeaderSales = async (req, res) => {
   try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to header-sales page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/header-sales');
+    
+    if (!isAdmin && !hasPageAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view header sales.',
+        reason: 'You must be an administrator or have been granted access to header sales.',
+      });
+    }
+
     const { 
       StoreCode, 
       InvoiceNumber,
@@ -295,9 +319,33 @@ export const bulkCreateHeaderSales = async (req, res) => {
 
 // @desc    Get header sales grouped by month
 // @route   GET /api/header-sales/by-month
-// @access  Private
+// @access  Private - Admin or users with /header-sales/by-month in allowedPages
 export const getHeaderSalesByMonth = async (req, res) => {
   try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to header-sales/by-month page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/header-sales/by-month');
+    
+    if (!isAdmin && !hasPageAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view sales by month.',
+        reason: 'You must be an administrator or have been granted access to sales by month.',
+      });
+    }
+
     const { Year } = req.query;
     
     // Build match query
@@ -362,9 +410,33 @@ export const getHeaderSalesByMonth = async (req, res) => {
 
 // @desc    Get cash header sales grouped by month with invoice type totals
 // @route   GET /api/header-sales/cash-by-month
-// @access  Private
+// @access  Private - Admin or users with /cash-sales in allowedPages
 export const getCashHeaderSalesByMonth = async (req, res) => {
   try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to cash-sales page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/cash-sales');
+    
+    if (!isAdmin && !hasPageAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view cash sales.',
+        reason: 'You must be an administrator or have been granted access to cash sales.',
+      });
+    }
+
     const { Year } = req.query;
     
     // Build match query
@@ -514,9 +586,33 @@ export const getCashHeaderSalesByMonth = async (req, res) => {
 
 // @desc    Get insurance header sales grouped by month with invoice type totals
 // @route   GET /api/header-sales/insurance-by-month
-// @access  Private
+// @access  Private - Admin or users with /insurance in allowedPages
 export const getInsuranceHeaderSalesByMonth = async (req, res) => {
   try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to insurance page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/insurance');
+    
+    if (!isAdmin && !hasPageAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view insurance sales.',
+        reason: 'You must be an administrator or have been granted access to insurance.',
+      });
+    }
+
     const { Year } = req.query;
     
     // Build match query - filter for insurance-related invoice types
@@ -668,9 +764,33 @@ export const getInsuranceHeaderSalesByMonth = async (req, res) => {
 
 // @desc    Get Wasfaty header sales grouped by month with Wasfaty and ReturnWasfaty totals
 // @route   GET /api/header-sales/wasfaty-by-month
-// @access  Private
+// @access  Private - Admin or users with /wasfaty in allowedPages
 export const getWasfatyHeaderSalesByMonth = async (req, res) => {
   try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to wasfaty page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/wasfaty');
+    
+    if (!isAdmin && !hasPageAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view Wasfaty sales.',
+        reason: 'You must be an administrator or have been granted access to Wasfaty.',
+      });
+    }
+
     const { Year } = req.query;
 
     // Build match query - filter for Wasfaty-related invoice types
@@ -784,9 +904,32 @@ export const getWasfatyHeaderSalesByMonth = async (req, res) => {
 
 // @desc    Get Online header sales (Online + ReturnOnline) grouped by month
 // @route   GET /api/header-sales/online-by-month
-// @access  Private
+// @access  Private - Admin or users with /online in allowedPages
 export const getOnlineHeaderSalesByMonth = async (req, res) => {
   try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to online page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/online');
+    
+    if (!isAdmin && !hasPageAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view Online sales.',
+        reason: 'You must be an administrator or have been granted access to Online.',
+      });
+    }
     const { Year } = req.query;
 
     // Build match query - filter for Online-related invoice types

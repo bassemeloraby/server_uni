@@ -76,6 +76,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  allowedPages: {
+    type: [String],
+    default: [],
+    // Array of page paths that the user is allowed to access
+    // Example: ['/pharmacies', '/header-sales', '/incentive-items']
+  },
 }, {
   timestamps: true,
 });

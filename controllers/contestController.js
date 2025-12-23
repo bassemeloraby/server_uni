@@ -3,17 +3,30 @@ import colors from 'colors';
 
 // @desc    Get all contests
 // @route   GET /api/contests
-// @access  Private - Admin only
+// @access  Private - Admin or users with /contests in allowedPages
 export const getContests = async (req, res) => {
   try {
     const user = req.user;
     
-    // Only admin can access contests
-    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to contests page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/contests');
+    
+    if (!isAdmin && !hasPageAccess) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Only administrators can view contests.',
-        reason: 'You must be an administrator to access contests.',
+        message: 'Access denied. You do not have permission to view contests.',
+        reason: 'You must be an administrator or have been granted access to contests.',
       });
     }
     
@@ -122,17 +135,30 @@ export const getContests = async (req, res) => {
 
 // @desc    Get single contest
 // @route   GET /api/contests/:id
-// @access  Private - Admin only
+// @access  Private - Admin or users with /contests in allowedPages
 export const getContest = async (req, res) => {
   try {
     const user = req.user;
     
-    // Only admin can access contests
-    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to contests page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/contests');
+    
+    if (!isAdmin && !hasPageAccess) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Only administrators can view contests.',
-        reason: 'You must be an administrator to access contests.',
+        message: 'Access denied. You do not have permission to view contests.',
+        reason: 'You must be an administrator or have been granted access to contests.',
       });
     }
     

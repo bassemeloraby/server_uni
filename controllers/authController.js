@@ -62,6 +62,7 @@ export const login = async (req, res) => {
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
+          allowedPages: user.allowedPages || [],
         },
         token: token,
       },

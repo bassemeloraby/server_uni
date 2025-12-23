@@ -3,16 +3,30 @@ import colors from 'colors';
 
 // @desc    Get all insurance items
 // @route   GET /api/insurance-items
-// @access  Private - Admin only
+// @access  Private - Admin or users with /insurance-items in allowedPages
 export const getInsuranceItems = async (req, res) => {
   try {
     const user = req.user;
 
-    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route.',
+      });
+    }
+
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to insurance-items page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/insurance-items');
+    
+    if (!isAdmin && !hasPageAccess) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Only administrators can view insurance items.',
-        reason: 'You must be an administrator to access insurance items.',
+        message: 'Access denied. You do not have permission to view insurance items.',
+        reason: 'You must be an administrator or have been granted access to insurance items.',
       });
     }
 
@@ -97,19 +111,33 @@ export const getInsuranceItems = async (req, res) => {
 
 // @desc    Get single insurance item
 // @route   GET /api/insurance-items/:id
-// @access  Private - Admin only
+// @access  Private - Admin or users with /insurance-items in allowedPages
 export const getInsuranceItem = async (req, res) => {
   try {
     const user = req.user;
 
-    if (!user || !user.role || user.role.toLowerCase() !== 'admin') {
-      return res.status(403).json({
+    if (!user) {
+      return res.status(401).json({
         success: false,
-        message: 'Access denied. Only administrators can view insurance items.',
-        reason: 'You must be an administrator to access insurance items.',
+        message: 'Not authorized to access this route.',
       });
     }
 
+    // Admins have access to all pages
+    const isAdmin = user.role && user.role.toLowerCase() === 'admin';
+    
+    // Check if user has access to insurance-items page
+    const allowedPages = user.allowedPages || [];
+    const hasPageAccess = allowedPages.includes('/insurance-items');
+    
+    if (!isAdmin && !hasPageAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view insurance items.',
+        reason: 'You must be an administrator or have been granted access to insurance items.',
+      });
+    }
+    
     const insuranceItem = await InsuranceItem.findById(req.params.id);
 
     if (!insuranceItem) {
