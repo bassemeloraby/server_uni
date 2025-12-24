@@ -11,6 +11,7 @@ import insuranceItemRoutes from './routes/insuranceItemRoutes.js';
 import contestRoutes from './routes/contestRoutes.js';
 import headerSalesRoutes from './routes/headerSalesRoutes.js';
 import visitRoutes from './routes/visitRoutes.js';
+import babyJoyRoutes from './routes/babyJoyRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -39,6 +40,7 @@ app.use("/api/insurance-items", insuranceItemRoutes);
 app.use("/api/contests", contestRoutes);
 app.use("/api/header-sales", headerSalesRoutes);
 app.use("/api/visits", visitRoutes);
+app.use("/api/baby-joy", babyJoyRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
