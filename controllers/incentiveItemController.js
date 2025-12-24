@@ -39,6 +39,7 @@ export const getIncentiveItems = async (req, res) => {
       description,
       minPrice,
       maxPrice,
+      activeIngredients,
       page = 1,
       limit = 50,
       sortByIncentiveValue,
@@ -71,11 +72,12 @@ export const getIncentiveItems = async (req, res) => {
         // Search by SAP Code if it's a valid number
         query.SAP_Code = searchAsNumber;
       } else {
-        // Use regex search for Category, Division, and Description fields
+        // Use regex search for Category, Division, Description, and activeIngredients fields
         query.$or = [
           { Category: new RegExp(search, 'i') },
           { Division: new RegExp(search, 'i') },
-          { Description: new RegExp(search, 'i') }
+          { Description: new RegExp(search, 'i') },
+          { activeIngredients: new RegExp(search, 'i') }
         ];
       }
     }
@@ -92,6 +94,29 @@ export const getIncentiveItems = async (req, res) => {
       }
       if (maxPrice) {
         query.Price.$lte = parseFloat(maxPrice);
+      }
+    }
+    
+    if (activeIngredients) {
+      // Split by comma and trim each ingredient, then filter items that contain any of them
+      const ingredients = activeIngredients.split(',').map(ing => ing.trim()).filter(ing => ing);
+      if (ingredients.length > 0) {
+        // For arrays of strings, use $or with regex to match any ingredient (case-insensitive partial match)
+        const activeIngConditions = ingredients.map(ing => ({
+          activeIngredients: new RegExp(ing, 'i')
+        }));
+        
+        // If there's already a $or from search, combine with $and
+        if (query.$or && Array.isArray(query.$or)) {
+          query.$and = [
+            { $or: query.$or },
+            { $or: activeIngConditions }
+          ];
+          delete query.$or;
+        } else {
+          // No existing $or, use $or for activeIngredients
+          query.$or = activeIngConditions;
+        }
       }
     }
     

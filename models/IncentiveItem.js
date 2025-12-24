@@ -40,6 +40,10 @@ const incentiveItemSchema = new mongoose.Schema({
     type: Number,
     min: [0, 'Incentive value must be a positive number'],
   },
+  activeIngredients: {
+    type: [String],
+    default: [],
+  },
 }, {
   timestamps: true,
 });
@@ -49,6 +53,7 @@ const incentiveItemSchema = new mongoose.Schema({
 incentiveItemSchema.index({ Description: 'text' });
 incentiveItemSchema.index({ Category: 1 });
 incentiveItemSchema.index({ Sub_category: 1 });
+incentiveItemSchema.index({ activeIngredients: 1 });
 // Indexes for sorting performance
 incentiveItemSchema.index({ Price: 1 });
 incentiveItemSchema.index({ incentive_value: 1 });
